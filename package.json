@@ -1,15 +1,28 @@
 {
-  "name": "nodejs",
+  "name": "8-limbs-muay-thai-app",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "main": "node_modules/expo/AppEntry.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start": "expo start",
+    "android": "expo start --android",
+    "ios": "expo start --ios",
+    "web": "expo start --web"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
   "dependencies": {
-    "@types/node": "^22.13.11"
-  }
+    "@expo/metro-runtime": "~3.2.3",
+    "@expo/ngrok": "^4.1.0",
+    "@react-native-async-storage/async-storage": "1.24.0",
+    "expo": "~51.0.28",
+    "expo-constants": "17.1.6",
+    "expo-status-bar": "~1.12.1",
+    "firebase": "^11.8.1",
+    "react": "18.2.0",
+    "react-dom": "18.2.0",
+    "react-native": "0.74.5",
+    "react-native-web": "~0.19.10"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.20.0"
+  },
+  "private": true
 }
