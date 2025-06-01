@@ -40,15 +40,16 @@ const LoginScreen = ({ onLogin }) => {
       let result;
 
       if (isSignUp) {
-        // Sign up new user
-        result = await authService.signUp(email, password, {
+        // Register new user - FIXED function name
+        result = await authService.register(
+          email,
+          password,
           firstName,
           lastName,
-          name: `${firstName} ${lastName}`,
-        });
+        );
       } else {
-        // Sign in existing user
-        result = await authService.signIn(email, password);
+        // Login existing user - FIXED function name
+        result = await authService.login(email, password);
       }
 
       if (result.success) {

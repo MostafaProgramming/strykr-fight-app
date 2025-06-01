@@ -142,15 +142,9 @@ class ClassService {
         userId,
         userName: userInfo.name || userInfo.email,
         userEmail: userInfo.email,
-        bookedAt: new Date(),
+        bookedAt: Timestamp.fromDate(new Date()),
         status: "confirmed",
         price: classData.price,
-      });
-
-      // Update user's class count
-      const userRef = doc(db, "users", userId);
-      await updateDoc(userRef, {
-        classesAttended: increment(1),
       });
 
       return { success: true, message: "Class booked successfully!" };
@@ -184,7 +178,7 @@ class ClassService {
       querySnapshot.forEach(async (doc) => {
         await updateDoc(doc.ref, {
           status: "cancelled",
-          cancelledAt: new Date(),
+          cancelledAt: Timestamp.fromDate(new Date()),
         });
       });
 
@@ -195,10 +189,32 @@ class ClassService {
     }
   }
 
-  // Get user's bookings
+  // Check in to a class (mark attendance)
+  async checkInToClass(classId, userId, bookingId) {
+    try {
+      // Update booking status to attended
+      const bookingRef = doc(db, "bookings", bookingId);
+      await updateDoc(bookingRef, {
+        status: "attended",
+        attendedAt: Timestamp.fromDate(new Date()),
+      });
+
+      // Optionally update class attendance count
+      const classRef = doc(db, "classes", classId);
+      await updateDoc(classRef, {
+        attendanceCount: increment(1),
+      });
+
+      return { success: true, message: "Check-in successful!" };
+    } catch (error) {
+      console.error("Error checking in to class:", error);
+      return { success: false, error: error.message };
+    }
+  }
   async getUserBookings(userId) {
     try {
       const bookingsRef = collection(db, "bookings");
+      // Restored orderBy after creating composite index
       const q = query(
         bookingsRef,
         where("userId", "==", userId),
@@ -208,21 +224,49 @@ class ClassService {
       const querySnapshot = await getDocs(q);
       const bookings = [];
 
-      for (const doc of querySnapshot.docs) {
-        const bookingData = doc.data();
+      for (const bookingDoc of querySnapshot.docs) {
+        const bookingData = bookingDoc.data();
 
-        // Get class details
-        const classDoc = await getDoc(doc(db, "classes", bookingData.classId));
-        const classData = classDoc.exists() ? classDoc.data() : {};
+        // Get class details for each booking
+        try {
+          const classDoc = await getDoc(
+            doc(db, "classes", bookingData.classId),
+          );
+          const classData = classDoc.exists() ? classDoc.data() : {};
 
-        bookings.push({
-          id: doc.id,
-          ...bookingData,
-          classDetails: {
-            ...classData,
-            datetime: classData.datetime?.toDate(),
-          },
-        });
+          bookings.push({
+            id: bookingDoc.id,
+            ...bookingData,
+            bookedAt: bookingData.bookedAt?.toDate
+              ? bookingData.bookedAt.toDate()
+              : new Date(),
+            classDetails: {
+              ...classData,
+              datetime: classData.datetime?.toDate
+                ? classData.datetime.toDate()
+                : null,
+            },
+          });
+        } catch (classError) {
+          console.error(
+            `Error fetching class ${bookingData.classId}:`,
+            classError,
+          );
+          // Still include the booking even if class details fail
+          bookings.push({
+            id: bookingDoc.id,
+            ...bookingData,
+            bookedAt: bookingData.bookedAt?.toDate
+              ? bookingData.bookedAt.toDate()
+              : new Date(),
+            classDetails: {
+              name: "Unknown Class",
+              instructor: "TBD",
+              price: bookingData.price || 0,
+              datetime: null,
+            },
+          });
+        }
       }
 
       return { success: true, bookings };
@@ -239,7 +283,7 @@ class ClassService {
       const docRef = await addDoc(classesRef, {
         ...classData,
         datetime: Timestamp.fromDate(classData.datetime),
-        createdAt: new Date(),
+        createdAt: Timestamp.fromDate(new Date()),
         bookedMembers: [],
         spotsLeft: classData.maxCapacity,
       });
@@ -263,7 +307,7 @@ class ClassService {
 
       await updateDoc(classRef, {
         ...updates,
-        updatedAt: new Date(),
+        updatedAt: Timestamp.fromDate(new Date()),
       });
 
       return { success: true };

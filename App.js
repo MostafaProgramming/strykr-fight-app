@@ -7,13 +7,16 @@ import {
   View,
   Text,
   Image,
+  ScrollView,
+  TouchableOpacity, // Add this missing import
 } from "react-native";
 import LoginScreen from "./src/screens/LoginScreen";
 import MainNavigator from "./src/navigation/MainNavigator";
+import SetupComponent from "./src/components/SetupComponent"; // Add this import
 import { colors } from "./src/constants/colors";
 import { mockMember } from "./src/data/mockData";
 
-// Loading Screen Component
+// Loading Screen Component (unchanged)
 const LoadingScreen = () => {
   const spinValue = React.useRef(new Animated.Value(0)).current;
   const fadeValue = React.useRef(new Animated.Value(0)).current;
@@ -124,6 +127,7 @@ const App = () => {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [member, setMember] = useState(null);
   const [bookedClasses, setBookedClasses] = useState([]);
+  const [showSetup, setShowSetup] = useState(false); // Add this state
 
   // Simulate app initialization
   useEffect(() => {
@@ -151,6 +155,7 @@ const App = () => {
           setIsLoggedIn(false);
           setMember(null);
           setBookedClasses([]);
+          setShowSetup(false); // Reset setup view on logout
         },
       },
     ]);
@@ -204,6 +209,14 @@ const App = () => {
     );
   };
 
+  // Add function to toggle setup view
+  const toggleSetupView = () => {
+    Alert.alert("Firebase Setup", "Show the Firebase data setup component?", [
+      { text: "Cancel", style: "cancel" },
+      { text: "Show Setup", onPress: () => setShowSetup(!showSetup) },
+    ]);
+  };
+
   if (isLoading) {
     return <LoadingScreen />;
   }
@@ -212,15 +225,102 @@ const App = () => {
     return <LoginScreen onLogin={handleLogin} />;
   }
 
+  // Add setup view option
+  if (showSetup) {
+    return (
+      <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
+        <StatusBar
+          barStyle="light-content"
+          backgroundColor={colors.background}
+        />
+        <ScrollView contentContainerStyle={{ flexGrow: 1 }}>
+          <View
+            style={{
+              flex: 1,
+              paddingTop: 50,
+              paddingHorizontal: 20,
+            }}
+          >
+            <Text
+              style={{
+                fontSize: 24,
+                fontWeight: "bold",
+                color: colors.text,
+                textAlign: "center",
+                marginBottom: 10,
+              }}
+            >
+              Firebase Setup Mode
+            </Text>
+            <Text
+              style={{
+                fontSize: 14,
+                color: colors.textSecondary,
+                textAlign: "center",
+                marginBottom: 20,
+              }}
+            >
+              Use this to populate your Firebase database with sample data
+            </Text>
+
+            <SetupComponent />
+
+            <View
+              style={{
+                flexDirection: "row",
+                justifyContent: "space-around",
+                marginTop: 20,
+                paddingHorizontal: 20,
+              }}
+            >
+              <TouchableOpacity
+                style={{
+                  backgroundColor: colors.primary,
+                  paddingHorizontal: 20,
+                  paddingVertical: 10,
+                  borderRadius: 8,
+                }}
+                onPress={() => setShowSetup(false)}
+              >
+                <Text style={{ color: colors.text, fontWeight: "600" }}>
+                  Back to App
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={{
+                  backgroundColor: colors.backgroundLight,
+                  paddingHorizontal: 20,
+                  paddingVertical: 10,
+                  borderRadius: 8,
+                  borderWidth: 1,
+                  borderColor: colors.cardBorder,
+                }}
+                onPress={handleLogout}
+              >
+                <Text style={{ color: colors.text, fontWeight: "600" }}>
+                  Logout
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </ScrollView>
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
       <StatusBar barStyle="light-content" backgroundColor={colors.background} />
+
+      {/* Add a hidden way to access setup - long press on header logo */}
       <MainNavigator
         member={member}
         bookedClasses={bookedClasses}
         onBookClass={handleBookClass}
         onCancelBooking={handleCancelBooking}
         onLogout={handleLogout}
+        onSetupAccess={toggleSetupView} // Pass this function down
       />
     </SafeAreaView>
   );
