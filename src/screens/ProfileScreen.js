@@ -1,8 +1,9 @@
-import React from 'react';
-import { View, Text, ScrollView, TouchableOpacity } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import { colors } from '../constants/colors';
-import { screenStyles } from '../styles/screenStyles';
+// src/screens/ProfileScreen.js - Updated with Grading Progress Option
+import React from "react";
+import { View, Text, ScrollView, TouchableOpacity } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
+import { colors } from "../constants/colors";
+import { screenStyles } from "../styles/screenStyles";
 
 const ProfileOption = ({ icon, title, onPress }) => (
   <TouchableOpacity style={screenStyles.profileOption} onPress={onPress}>
@@ -14,7 +15,10 @@ const ProfileOption = ({ icon, title, onPress }) => (
 
 const ProfileScreen = ({ member, onLogout, onNavigate }) => {
   return (
-    <ScrollView style={screenStyles.content} showsVerticalScrollIndicator={false}>
+    <ScrollView
+      style={screenStyles.content}
+      showsVerticalScrollIndicator={false}
+    >
       {/* Profile Header */}
       <View style={screenStyles.profileHeader}>
         <View style={screenStyles.avatarLarge}>
@@ -23,43 +27,50 @@ const ProfileScreen = ({ member, onLogout, onNavigate }) => {
         <Text style={screenStyles.profileName}>{member.name}</Text>
         <Text style={screenStyles.profileEmail}>{member.email}</Text>
         <View style={screenStyles.membershipBadge}>
-          <Text style={screenStyles.membershipText}>{member.membership} Member</Text>
+          <Text style={screenStyles.membershipText}>
+            {member.membership} Member
+          </Text>
         </View>
       </View>
 
       {/* Profile Options */}
       <View style={screenStyles.section}>
-        <ProfileOption 
-          icon="person" 
-          title="Edit Profile" 
-          onPress={() => onNavigate('editprofile')} 
+        <ProfileOption
+          icon="person"
+          title="Edit Profile"
+          onPress={() => onNavigate("editprofile")}
         />
-        <ProfileOption 
-          icon="calendar" 
-          title="My Bookings" 
-          onPress={() => onNavigate('mybookings')} 
+        <ProfileOption
+          icon="calendar"
+          title="My Bookings"
+          onPress={() => onNavigate("mybookings")}
         />
-        <ProfileOption 
-          icon="card" 
-          title="Payment Methods" 
-          onPress={() => onNavigate('paymentmethods')} 
+        <ProfileOption
+          icon="trophy"
+          title="Grading Progress"
+          onPress={() => onNavigate("grading")}
         />
-        <ProfileOption 
-          icon="notifications" 
-          title="Notifications" 
-          onPress={() => onNavigate('settings')} 
+        <ProfileOption
+          icon="card"
+          title="Payment Methods"
+          onPress={() => onNavigate("paymentmethods")}
         />
-        <ProfileOption 
-          icon="help-circle" 
-          title="Help & Support" 
-          onPress={() => onNavigate('helpsupport')} 
+        <ProfileOption
+          icon="notifications"
+          title="Notifications"
+          onPress={() => onNavigate("settings")}
         />
-        <ProfileOption 
-          icon="settings" 
-          title="Settings" 
-          onPress={() => onNavigate('settings')} 
+        <ProfileOption
+          icon="help-circle"
+          title="Help & Support"
+          onPress={() => onNavigate("helpsupport")}
         />
-        
+        <ProfileOption
+          icon="settings"
+          title="Settings"
+          onPress={() => onNavigate("settings")}
+        />
+
         <TouchableOpacity style={screenStyles.logoutButton} onPress={onLogout}>
           <Ionicons name="log-out" size={20} color={colors.primary} />
           <Text style={screenStyles.logoutText}>Logout</Text>

@@ -1,4 +1,4 @@
-// Updated MainNavigator.js with member data passed to ClassesScreen
+// src/navigation/MainNavigator.js - Updated with Grading Screen
 
 import React, { useState } from "react";
 import { View, Text, TouchableOpacity, Image } from "react-native";
@@ -6,7 +6,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { colors } from "../constants/colors";
 import { navigationStyles } from "../styles/navigationStyles";
 
-// Import screens (unchanged)
+// Import all screens including the new GradingScreen
 import HomeScreen from "../screens/HomeScreen";
 import ClassesScreen from "../screens/ClassesScreen";
 import CheckInScreen from "../screens/CheckInScreen";
@@ -18,6 +18,7 @@ import EditProfileScreen from "../screens/EditProfileScreen";
 import PaymentMethodsScreen from "../screens/PaymentMethodsScreen";
 import HelpSupportScreen from "../screens/HelpSupportScreen";
 import GoalManagementScreen from "../screens/GoalManagementScreen";
+import GradingScreen from "../screens/GradingScreen"; // Add this import
 
 // Modified Header Component with setup access
 const Header = ({
@@ -73,7 +74,7 @@ const Header = ({
   </View>
 );
 
-// Bottom Navigation Component (unchanged)
+// Bottom Navigation Component
 const BottomNavigation = ({ activeTab, setActiveTab, currentScreen }) => {
   // Hide bottom nav on sub-screens
   if (
@@ -127,7 +128,7 @@ const BottomNavigation = ({ activeTab, setActiveTab, currentScreen }) => {
   );
 };
 
-// Modified MainNavigator - updated to pass member data to ClassesScreen
+// Main Navigator - updated to include grading screen
 const MainNavigator = ({
   member,
   bookedClasses,
@@ -192,7 +193,12 @@ const MainNavigator = ({
       case "checkin":
         return <CheckInScreen />;
       case "progress":
-        return <ProgressScreen member={memberData} />;
+        return (
+          <ProgressScreen
+            member={memberData}
+            onNavigate={navigateToScreen} // Add navigation prop
+          />
+        );
       case "profile":
         return (
           <ProfileScreen
@@ -226,6 +232,8 @@ const MainNavigator = ({
             onSaveGoal={handleGoalUpdate}
           />
         );
+      case "grading": // Add the new grading screen case
+        return <GradingScreen member={memberData} onBack={goBack} />;
       default:
         return (
           <HomeScreen

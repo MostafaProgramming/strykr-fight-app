@@ -1,5 +1,5 @@
 // src/components/SetupComponent.js
-// Complete, working setup component with proper JSX structure
+// Complete, working setup component with grading system integration
 
 import React, { useState } from "react";
 import {
@@ -12,6 +12,7 @@ import {
 import { collection, addDoc, getDocs } from "firebase/firestore";
 import { db } from "../config/firebase";
 import { colors } from "../constants/colors";
+import GradingSystemSetup from "../setup/GradingSystemSetup";
 
 const SetupComponent = () => {
   const [loading, setLoading] = useState(false);
@@ -175,6 +176,88 @@ const SetupComponent = () => {
     }
   };
 
+  // Add grading system setup methods
+  const setupGradingSystem = async () => {
+    try {
+      setLoading(true);
+      setStatus("Setting up grading system...");
+
+      const result = await GradingSystemSetup.setupCompleteGradingSystem();
+
+      if (result.success) {
+        setStatus("Grading system setup complete!");
+        Alert.alert(
+          "Grading System Ready! 🥊",
+          `Successfully set up the complete Muay Thai grading system:\n\n` +
+            `• ${result.details.sessions.sessionsCount} grading sessions created\n` +
+            `• ${result.details.userUpdates.usersUpdated} users updated with bands\n` +
+            `• ${result.details.sampleApplications.applicationsCount} sample applications created\n\n` +
+            `Users can now track their grading progress and apply for gradings!`,
+          [{ text: "Excellent!", style: "default" }],
+        );
+      } else {
+        setStatus("Error setting up grading system");
+        Alert.alert("Error", result.error);
+      }
+    } catch (error) {
+      console.error("Error setting up grading system:", error);
+      setStatus("Error setting up grading system");
+      Alert.alert("Error", error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const cleanupGradingData = async () => {
+    try {
+      setLoading(true);
+      setStatus("Cleaning up grading data...");
+
+      const result = await GradingSystemSetup.cleanupGradingData();
+
+      if (result.success) {
+        setStatus("Grading data cleaned up!");
+        Alert.alert("Cleanup Complete", result.message);
+      } else {
+        setStatus("Error cleaning up grading data");
+        Alert.alert("Error", result.error);
+      }
+    } catch (error) {
+      console.error("Error cleaning up grading data:", error);
+      setStatus("Error cleaning up grading data");
+      Alert.alert("Error", error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const updateUsersWithGrading = async () => {
+    try {
+      setLoading(true);
+      setStatus("Updating users with grading system...");
+
+      const result = await GradingSystemSetup.updateExistingUsersWithGrading();
+
+      if (result.success) {
+        setStatus("Users updated with grading system!");
+        Alert.alert(
+          "Users Updated! 🎯",
+          `Successfully updated ${result.usersUpdated} users with grading bands based on their class attendance.`,
+          [{ text: "Great!", style: "default" }],
+        );
+      } else {
+        setStatus("Error updating users");
+        Alert.alert("Error", result.error);
+      }
+    } catch (error) {
+      console.error("Error updating users:", error);
+      setStatus("Error updating users");
+      Alert.alert("Error", error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const checkData = async () => {
     try {
       setLoading(true);
@@ -189,6 +272,18 @@ const SetupComponent = () => {
         collection(db, "achievements"),
       );
       const achievementCount = achievementsSnapshot.size;
+
+      // Check grading sessions
+      const gradingSessionsSnapshot = await getDocs(
+        collection(db, "gradingSessions"),
+      );
+      const gradingSessionsCount = gradingSessionsSnapshot.size;
+
+      // Check grading applications
+      const gradingApplicationsSnapshot = await getDocs(
+        collection(db, "gradingApplications"),
+      );
+      const gradingApplicationsCount = gradingApplicationsSnapshot.size;
 
       // Get class breakdown by day
       const classesByDay = {};
@@ -206,13 +301,15 @@ const SetupComponent = () => {
         .join("\n");
 
       setStatus(
-        `Found ${classCount} classes and ${achievementCount} achievements`,
+        `Found ${classCount} classes, ${achievementCount} achievements, ${gradingSessionsCount} grading sessions, ${gradingApplicationsCount} applications`,
       );
       Alert.alert(
         "Data Check",
         `📊 Database Status:\n\n` +
           `Classes: ${classCount}\n` +
-          `Achievements: ${achievementCount}\n\n` +
+          `Achievements: ${achievementCount}\n` +
+          `Grading Sessions: ${gradingSessionsCount}\n` +
+          `Grading Applications: ${gradingApplicationsCount}\n\n` +
           `Classes by Day:\n${breakdown}`,
         [{ text: "OK", style: "default" }],
       );
@@ -253,13 +350,14 @@ const SetupComponent = () => {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Realistic Schedule Setup</Text>
+      <Text style={styles.title}>8 Limbs Gym Complete Setup</Text>
       <Text style={styles.subtitle}>
-        Set up your gym's actual weekly timetable in Firebase
+        Complete setup for classes, achievements, and grading system
       </Text>
 
       {status ? <Text style={styles.status}>{status}</Text> : null}
 
+      {/* Schedule Management */}
       <TouchableOpacity
         style={styles.button}
         onPress={showScheduleSummary}
@@ -277,7 +375,7 @@ const SetupComponent = () => {
           <ActivityIndicator color={colors.text} />
         ) : (
           <Text style={styles.buttonText}>
-            🗓️ Setup Continuous Schedule (8 weeks)
+            🗓️ Setup Class Schedule (8 weeks)
           </Text>
         )}
       </TouchableOpacity>
@@ -306,6 +404,36 @@ const SetupComponent = () => {
         )}
       </TouchableOpacity>
 
+      {/* Grading System Management */}
+      <TouchableOpacity
+        style={[styles.button, styles.gradingButton]}
+        onPress={setupGradingSystem}
+        disabled={loading}
+      >
+        {loading ? (
+          <ActivityIndicator color={colors.text} />
+        ) : (
+          <Text style={styles.buttonText}>
+            🥋 Setup Complete Grading System
+          </Text>
+        )}
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        style={[styles.button, styles.gradingButton]}
+        onPress={updateUsersWithGrading}
+        disabled={loading}
+      >
+        {loading ? (
+          <ActivityIndicator color={colors.text} />
+        ) : (
+          <Text style={styles.buttonText}>
+            🎯 Update Users with Grading Bands
+          </Text>
+        )}
+      </TouchableOpacity>
+
+      {/* Achievements */}
       <TouchableOpacity
         style={styles.button}
         onPress={addSampleAchievements}
@@ -318,6 +446,7 @@ const SetupComponent = () => {
         )}
       </TouchableOpacity>
 
+      {/* Data Management */}
       <TouchableOpacity
         style={[styles.button, styles.secondaryButton]}
         onPress={checkData}
@@ -332,6 +461,21 @@ const SetupComponent = () => {
         )}
       </TouchableOpacity>
 
+      <TouchableOpacity
+        style={[styles.button, styles.dangerButton]}
+        onPress={cleanupGradingData}
+        disabled={loading}
+      >
+        {loading ? (
+          <ActivityIndicator color={colors.primary} />
+        ) : (
+          <Text style={[styles.buttonText, styles.dangerButtonText]}>
+            🗑️ Cleanup Grading Data
+          </Text>
+        )}
+      </TouchableOpacity>
+
+      {/* Info boxes */}
       <View style={styles.infoBox}>
         <Text style={styles.infoTitle}>🔄 Continuous Scheduling:</Text>
         <Text style={styles.infoText}>
@@ -339,6 +483,16 @@ const SetupComponent = () => {
           available{"\n"}• Add individual weeks as needed{"\n"}• Old classes
           auto-cleanup{"\n"}• Always keeps 6+ weeks scheduled{"\n"}• Perfect for
           ongoing gym operations
+        </Text>
+      </View>
+
+      <View style={styles.infoBox}>
+        <Text style={styles.infoTitle}>🥋 Grading System Features:</Text>
+        <Text style={styles.infoText}>
+          • 10-band progression system (White to Red){"\n"}• Automatic band
+          assignment based on attendance{"\n"}• Monthly grading sessions{"\n"}•
+          Application and approval process{"\n"}• Progress tracking and
+          requirements{"\n"}• Integration with progress screen
         </Text>
       </View>
 
@@ -400,10 +554,20 @@ const styles = {
     borderWidth: 2,
     borderColor: colors.primary + "80",
   },
+  gradingButton: {
+    backgroundColor: "#8B5CF6", // Purple for grading system
+    borderWidth: 2,
+    borderColor: "#8B5CF6" + "80",
+  },
   secondaryButton: {
     backgroundColor: "transparent",
     borderWidth: 1,
     borderColor: colors.primary,
+  },
+  dangerButton: {
+    backgroundColor: "transparent",
+    borderWidth: 1,
+    borderColor: "#EF4444",
   },
   buttonText: {
     color: colors.text,
@@ -412,6 +576,9 @@ const styles = {
   },
   secondaryButtonText: {
     color: colors.primary,
+  },
+  dangerButtonText: {
+    color: "#EF4444",
   },
   infoBox: {
     backgroundColor: colors.backgroundLight,
