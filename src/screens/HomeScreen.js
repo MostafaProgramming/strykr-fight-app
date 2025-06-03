@@ -6,22 +6,15 @@ import {
   TouchableOpacity,
   RefreshControl,
   Animated,
-  ActivityIndicator,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { colors } from "../constants/colors";
-import ClassCard from "../components/ClassCard";
-import classService from "../services/classService";
-import authService from "../services/authService";
 import { screenStyles } from "../styles/screenStyles";
 
-const HomeScreen = ({ member, bookedClasses, onBookClass, onNavigate }) => {
+const HomeScreen = ({ member, onNavigate }) => {
   const [refreshing, setRefreshing] = useState(false);
   const [greeting, setGreeting] = useState("");
-  const [todaysClasses, setTodaysClasses] = useState([]);
-  const [userBookings, setUserBookings] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [memberData, setMemberData] = useState(member);
+  const [recentSessions, setRecentSessions] = useState([]);
   const fadeAnim = React.useRef(new Animated.Value(0)).current;
 
   // Set greeting based on time of day
@@ -35,6 +28,26 @@ const HomeScreen = ({ member, bookedClasses, onBookClass, onNavigate }) => {
       setGreeting("Good Evening");
     }
 
+    // Mock recent sessions
+    setRecentSessions([
+      {
+        id: 1,
+        type: "Bag Work",
+        rounds: 6,
+        intensity: 8,
+        date: "Today",
+        duration: 30,
+      },
+      {
+        id: 2,
+        type: "Sparring",
+        rounds: 5,
+        intensity: 9,
+        date: "Yesterday",
+        duration: 25,
+      },
+    ]);
+
     // Fade in animation
     Animated.timing(fadeAnim, {
       toValue: 1,
@@ -43,126 +56,36 @@ const HomeScreen = ({ member, bookedClasses, onBookClass, onNavigate }) => {
     }).start();
   }, [fadeAnim]);
 
-  // Fetch real Firebase data
-  const fetchHomeData = async () => {
-    try {
-      // Get today's classes
-      const classesResult = await classService.getTodaysClasses();
-      if (classesResult.success) {
-        setTodaysClasses(classesResult.classes);
-      }
+  const onRefresh = React.useCallback(() => {
+    setRefreshing(true);
+    setTimeout(() => setRefreshing(false), 1000);
+  }, []);
 
-      // Get user's bookings if logged in
-      if (member && member.uid) {
-        const bookingsResult = await classService.getUserBookings(member.uid);
-        if (bookingsResult.success) {
-          setUserBookings(bookingsResult.bookings);
-        }
-
-        // Refresh user profile to get latest stats
-        const profileResult = await authService.getCurrentUserProfile();
-        if (profileResult.success) {
-          setMemberData(profileResult.user);
-        }
-      }
-    } catch (error) {
-      console.error("Error fetching home data:", error);
-    } finally {
-      setLoading(false);
+  const getTrainingTypeColor = (type) => {
+    switch (type.toLowerCase()) {
+      case "bag work":
+        return colors.bagWork;
+      case "pad work":
+        return colors.padWork;
+      case "sparring":
+        return colors.sparring;
+      case "drills":
+        return colors.drills;
+      case "strength":
+        return colors.strength;
+      case "recovery":
+        return colors.recovery;
+      default:
+        return colors.primary;
     }
   };
 
-  useEffect(() => {
-    fetchHomeData();
-  }, [member]);
-
-  // Handle refresh
-  const onRefresh = React.useCallback(async () => {
-    setRefreshing(true);
-    await fetchHomeData();
-    setRefreshing(false);
-  }, [member]);
-
-  // Get user's bookings for today
-  const getTodaysBookings = () => {
-    const today = new Date();
-    const todayStart = new Date(
-      today.getFullYear(),
-      today.getMonth(),
-      today.getDate(),
-    );
-    const todayEnd = new Date(todayStart.getTime() + 24 * 60 * 60 * 1000);
-
-    return userBookings.filter((booking) => {
-      const classDate = booking.classDetails?.datetime;
-      return (
-        classDate &&
-        classDate >= todayStart &&
-        classDate < todayEnd &&
-        booking.status === "confirmed"
-      );
-    });
+  const getIntensityColor = (intensity) => {
+    if (intensity <= 3) return colors.intensityLow;
+    if (intensity <= 6) return colors.intensityMedium;
+    if (intensity <= 8) return colors.intensityHigh;
+    return colors.intensityMax;
   };
-
-  // Get upcoming class recommendation
-  const getRecommendedClass = () => {
-    const myBookedClassIds = userBookings.map((b) => b.classId);
-    return todaysClasses.find(
-      (c) => !myBookedClassIds.includes(c.id) && c.spotsLeft > 0,
-    );
-  };
-
-  // Get available classes for today (not booked by user)
-  const getAvailableClasses = () => {
-    const myBookedClassIds = userBookings.map((b) => b.classId);
-    return todaysClasses.filter(
-      (c) => !myBookedClassIds.includes(c.id) && c.spotsLeft > 0,
-    );
-  };
-
-  // Calculate this week's classes for user
-  const getThisWeekCount = () => {
-    const now = new Date();
-    const weekStart = new Date(now.setDate(now.getDate() - now.getDay()));
-    const weekEnd = new Date(weekStart.getTime() + 7 * 24 * 60 * 60 * 1000);
-
-    const thisWeekBookings = userBookings.filter((booking) => {
-      const classDate = booking.classDetails?.datetime;
-      return classDate && classDate >= weekStart && classDate < weekEnd;
-    });
-
-    return thisWeekBookings.length;
-  };
-
-  // Check if user has booked a specific class
-  const isClassBooked = (classItem) => {
-    return (
-      classItem.bookedMembers &&
-      member &&
-      classItem.bookedMembers.includes(member.uid)
-    );
-  };
-
-  if (loading) {
-    return (
-      <View
-        style={[
-          screenStyles.content,
-          { justifyContent: "center", alignItems: "center", paddingTop: 100 },
-        ]}
-      >
-        <ActivityIndicator size="large" color={colors.primary} />
-        <Text style={{ color: colors.text, marginTop: 10 }}>
-          Loading your dashboard...
-        </Text>
-      </View>
-    );
-  }
-
-  const myTodaysBookings = getTodaysBookings();
-  const recommendedClass = getRecommendedClass();
-  const availableClasses = getAvailableClasses();
-  const thisWeekCount = getThisWeekCount();
 
   return (
     <ScrollView
@@ -177,18 +100,14 @@ const HomeScreen = ({ member, bookedClasses, onBookClass, onNavigate }) => {
       }
     >
       <Animated.View style={{ opacity: fadeAnim }}>
-        {/* Personalized Welcome Card */}
+        {/* Welcome Card */}
         <View style={screenStyles.welcomeCard}>
           <Text style={screenStyles.welcomeTitle}>
-            {greeting},{" "}
-            {memberData.name ? memberData.name.split(" ")[0] : "Warrior"}! 🥊
+            {greeting}, {member.name ? member.name.split(" ")[0] : "Fighter"}!
+            🥊
           </Text>
           <Text style={screenStyles.welcomeText}>
-            {myTodaysBookings.length > 0
-              ? `You have ${myTodaysBookings.length} class${myTodaysBookings.length > 1 ? "es" : ""} booked today. Ready to train?`
-              : todaysClasses.length > 0
-                ? "Ready for your next training session? Check out today's available classes below."
-                : "No classes scheduled for today. Perfect time to plan your week ahead!"}
+            Ready for another training session? Your consistency is paying off!
           </Text>
         </View>
 
@@ -199,24 +118,26 @@ const HomeScreen = ({ member, bookedClasses, onBookClass, onNavigate }) => {
             onPress={() => onNavigate("progress")}
           >
             <Text style={screenStyles.statNumber}>
-              {memberData.classesAttended || 0}
+              {member.totalSessions || 142}
             </Text>
-            <Text style={screenStyles.statLabel}>Classes Attended</Text>
+            <Text style={screenStyles.statLabel}>Total Sessions</Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={screenStyles.statCard}
             onPress={() => onNavigate("progress")}
           >
             <Text style={screenStyles.statNumber}>
-              {memberData.currentStreak || 0}
+              {member.currentStreak || 7}
             </Text>
             <Text style={screenStyles.statLabel}>Day Streak</Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={screenStyles.statCard}
-            onPress={() => onNavigate("mybookings")}
+            onPress={() => onNavigate("progress")}
           >
-            <Text style={screenStyles.statNumber}>{thisWeekCount}</Text>
+            <Text style={screenStyles.statNumber}>
+              {member.thisWeekSessions || 4}
+            </Text>
             <Text style={screenStyles.statLabel}>This Week</Text>
           </TouchableOpacity>
         </View>
@@ -226,267 +147,233 @@ const HomeScreen = ({ member, bookedClasses, onBookClass, onNavigate }) => {
           <Text style={screenStyles.sectionTitle}>Quick Actions</Text>
           <View style={screenStyles.quickActionsGrid}>
             <TouchableOpacity
-              style={screenStyles.actionCard}
-              onPress={() => onNavigate("checkin")}
+              style={[
+                screenStyles.actionCard,
+                { backgroundColor: colors.bagWork + "20" },
+              ]}
+              onPress={() => onNavigate("logtraining")}
             >
-              <Ionicons name="qr-code" size={28} color={colors.primary} />
-              <Text style={screenStyles.actionText}>Check In</Text>
+              <Ionicons name="fitness" size={28} color={colors.bagWork} />
+              <Text style={screenStyles.actionText}>Log Training</Text>
             </TouchableOpacity>
             <TouchableOpacity
-              style={screenStyles.actionCard}
-              onPress={() => onNavigate("mybookings")}
+              style={[
+                screenStyles.actionCard,
+                { backgroundColor: colors.secondary + "20" },
+              ]}
+              onPress={() => onNavigate("challenges")}
             >
-              <Ionicons
-                name="calendar-outline"
-                size={28}
-                color={colors.primary}
-              />
-              <Text style={screenStyles.actionText}>My Classes</Text>
+              <Ionicons name="trophy" size={28} color={colors.secondary} />
+              <Text style={screenStyles.actionText}>Challenges</Text>
             </TouchableOpacity>
             <TouchableOpacity
-              style={screenStyles.actionCard}
-              onPress={() => onNavigate("progress")}
+              style={[
+                screenStyles.actionCard,
+                { backgroundColor: colors.padWork + "20" },
+              ]}
+              onPress={() => onNavigate("feed")}
             >
-              <Ionicons
-                name="trophy-outline"
-                size={28}
-                color={colors.primary}
-              />
-              <Text style={screenStyles.actionText}>Progress</Text>
+              <Ionicons name="people" size={28} color={colors.padWork} />
+              <Text style={screenStyles.actionText}>Training Feed</Text>
             </TouchableOpacity>
             <TouchableOpacity
-              style={screenStyles.actionCard}
-              onPress={() => onNavigate("classes")}
+              style={[
+                screenStyles.actionCard,
+                { backgroundColor: colors.drills + "20" },
+              ]}
+              onPress={() => onNavigate("stats")}
             >
-              <Ionicons
-                name="people-outline"
-                size={28}
-                color={colors.primary}
-              />
-              <Text style={screenStyles.actionText}>All Classes</Text>
+              <Ionicons name="analytics" size={28} color={colors.drills} />
+              <Text style={screenStyles.actionText}>My Stats</Text>
             </TouchableOpacity>
           </View>
         </View>
 
-        {/* My Classes Today */}
-        {myTodaysBookings.length > 0 && (
-          <View style={screenStyles.section}>
-            <Text style={screenStyles.sectionTitle}>My Classes Today</Text>
-            {myTodaysBookings.map((booking) => {
-              // Transform booking to class-like object for ClassCard
-              const classItem = {
-                id: booking.classId,
-                name: booking.classDetails?.name || booking.name,
-                instructor:
-                  booking.classDetails?.instructor || booking.instructor,
-                time: booking.time,
-                date: "Today",
-                price: booking.price,
-                difficulty: booking.classDetails?.difficulty || "Unknown",
-                spotsLeft: booking.classDetails?.spotsLeft || 0,
-                bookedMembers: booking.classDetails?.bookedMembers || [],
-                description: booking.classDetails?.description || "",
-              };
-
-              return (
-                <ClassCard
-                  key={booking.id}
-                  classItem={classItem}
-                  isBooked={true}
-                  onBook={() => onBookClass(classItem)}
-                  showBookedState={true}
-                />
-              );
-            })}
+        {/* Recent Training */}
+        <View style={screenStyles.section}>
+          <View style={screenStyles.sectionHeader}>
+            <Text style={screenStyles.sectionTitle}>Recent Training</Text>
+            <TouchableOpacity onPress={() => onNavigate("training")}>
+              <Text style={screenStyles.seeAllText}>See All</Text>
+            </TouchableOpacity>
           </View>
-        )}
 
-        {/* Next Recommended Class */}
-        {recommendedClass && (
-          <View style={screenStyles.section}>
-            <Text style={screenStyles.sectionTitle}>Recommended for You</Text>
-            <View style={screenStyles.recommendedCard}>
-              <View style={screenStyles.recommendedHeader}>
-                <Ionicons name="star" size={20} color={colors.primary} />
-                <Text style={screenStyles.recommendedLabel}>Perfect Match</Text>
+          {recentSessions.map((session) => (
+            <View key={session.id} style={styles.sessionCard}>
+              <View style={styles.sessionHeader}>
+                <View
+                  style={[
+                    styles.sessionTypeIcon,
+                    {
+                      backgroundColor:
+                        getTrainingTypeColor(session.type) + "20",
+                    },
+                  ]}
+                >
+                  <Ionicons
+                    name="fitness"
+                    size={20}
+                    color={getTrainingTypeColor(session.type)}
+                  />
+                </View>
+                <View style={styles.sessionInfo}>
+                  <Text style={styles.sessionType}>{session.type}</Text>
+                  <Text style={styles.sessionDate}>{session.date}</Text>
+                </View>
+                <View style={styles.sessionStats}>
+                  <View
+                    style={[
+                      styles.intensityBadge,
+                      {
+                        backgroundColor:
+                          getIntensityColor(session.intensity) + "20",
+                      },
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.intensityText,
+                        { color: getIntensityColor(session.intensity) },
+                      ]}
+                    >
+                      RPE {session.intensity}
+                    </Text>
+                  </View>
+                </View>
               </View>
-              <ClassCard
-                classItem={{
-                  ...recommendedClass,
-                  time: recommendedClass.datetime.toLocaleTimeString("en-US", {
-                    hour: "2-digit",
-                    minute: "2-digit",
-                    hour12: false,
-                  }),
-                  date: "Today",
-                }}
-                isBooked={isClassBooked(recommendedClass)}
-                onBook={() => onBookClass(recommendedClass)}
-                showFullDetails={true}
-              />
-            </View>
-          </View>
-        )}
 
-        {/* Today's Available Classes */}
-        {availableClasses.length > 0 && (
-          <View style={screenStyles.section}>
-            <View style={screenStyles.sectionHeader}>
-              <Text style={screenStyles.sectionTitle}>Available Today</Text>
-              <TouchableOpacity onPress={() => onNavigate("classes")}>
-                <Text style={screenStyles.seeAllText}>See All</Text>
-              </TouchableOpacity>
+              <View style={styles.sessionDetails}>
+                <View style={styles.sessionDetail}>
+                  <Ionicons
+                    name="timer"
+                    size={16}
+                    color={colors.textSecondary}
+                  />
+                  <Text style={styles.sessionDetailText}>
+                    {session.duration} min
+                  </Text>
+                </View>
+                <View style={styles.sessionDetail}>
+                  <Ionicons
+                    name="repeat"
+                    size={16}
+                    color={colors.textSecondary}
+                  />
+                  <Text style={styles.sessionDetailText}>
+                    {session.rounds} rounds
+                  </Text>
+                </View>
+              </View>
             </View>
-            {availableClasses.slice(0, 2).map((classItem) => (
-              <ClassCard
-                key={classItem.id}
-                classItem={{
-                  ...classItem,
-                  time: classItem.datetime.toLocaleTimeString("en-US", {
-                    hour: "2-digit",
-                    minute: "2-digit",
-                    hour12: false,
-                  }),
-                  date: "Today",
-                }}
-                isBooked={isClassBooked(classItem)}
-                onBook={() => onBookClass(classItem)}
-              />
-            ))}
-          </View>
-        )}
+          ))}
+        </View>
 
-        {/* Empty state for no classes today */}
-        {todaysClasses.length === 0 && (
-          <View style={screenStyles.section}>
-            <View
-              style={{
-                backgroundColor: colors.cardBackground,
-                borderRadius: 15,
-                padding: 30,
-                alignItems: "center",
-                borderWidth: 1,
-                borderColor: colors.cardBorder,
-              }}
-            >
-              <Ionicons
-                name="calendar-outline"
-                size={48}
-                color={colors.textSecondary}
-              />
-              <Text
-                style={{
-                  fontSize: 18,
-                  fontWeight: "bold",
-                  color: colors.text,
-                  marginTop: 15,
-                  marginBottom: 8,
-                }}
-              >
-                No Classes Today
-              </Text>
-              <Text
-                style={{
-                  fontSize: 14,
-                  color: colors.textSecondary,
-                  textAlign: "center",
-                  marginBottom: 20,
-                }}
-              >
-                Check tomorrow's schedule or browse all available classes.
-              </Text>
-              <TouchableOpacity
-                style={screenStyles.primaryButton}
-                onPress={() => onNavigate("classes")}
-              >
-                <Text style={screenStyles.primaryButtonText}>
-                  Browse Classes
-                </Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        )}
-
-        {/* Current Goal */}
+        {/* Current Goals */}
         <View style={screenStyles.goalCard}>
           <View style={screenStyles.goalHeader}>
             <Ionicons name="radio-button-on" size={24} color={colors.primary} />
             <Text style={screenStyles.goalTitle}>Weekly Goal</Text>
           </View>
-          <Text style={screenStyles.goalText}>
-            {memberData.nextGoal || "Complete your first class"}
-          </Text>
+          <Text style={screenStyles.goalText}>Train 5 times this week</Text>
           <View style={screenStyles.progressBar}>
             <View
               style={[
                 screenStyles.progressFill,
-                { width: `${Math.min((thisWeekCount / 5) * 100, 100)}%` },
+                { width: `${((member.thisWeekSessions || 4) / 5) * 100}%` },
               ]}
             />
           </View>
           <Text style={screenStyles.progressText}>
-            {thisWeekCount} of 5 sessions completed this week
+            {member.thisWeekSessions || 4} of 5 sessions completed
           </Text>
 
           <TouchableOpacity
             style={screenStyles.goalButton}
-            onPress={() => onNavigate("goalmanagement")}
+            onPress={() => onNavigate("challenges")}
           >
-            <Text style={screenStyles.goalButtonText}>Update Goal</Text>
+            <Text style={screenStyles.goalButtonText}>View Challenges</Text>
           </TouchableOpacity>
         </View>
 
-        {/* Weekly Schedule Preview */}
-        <View style={screenStyles.section}>
-          <Text style={screenStyles.sectionTitle}>This Week's Highlights</Text>
-          <View style={screenStyles.weeklyHighlights}>
-            <View style={screenStyles.highlightItem}>
-              <View style={screenStyles.highlightIcon}>
-                <Ionicons name="flash" size={16} color={colors.primary} />
-              </View>
-              <View style={screenStyles.highlightContent}>
-                <Text style={screenStyles.highlightTitle}>
-                  Sparring Workshop
-                </Text>
-                <Text style={screenStyles.highlightDesc}>
-                  Saturday 2PM - Advanced techniques
-                </Text>
-              </View>
-            </View>
-
-            <View style={screenStyles.highlightItem}>
-              <View style={screenStyles.highlightIcon}>
-                <Ionicons name="people" size={16} color={colors.primary} />
-              </View>
-              <View style={screenStyles.highlightContent}>
-                <Text style={screenStyles.highlightTitle}>Open Training</Text>
-                <Text style={screenStyles.highlightDesc}>
-                  Sunday 10AM - All levels welcome
-                </Text>
-              </View>
-            </View>
-          </View>
-        </View>
-
-        {/* Motivational Quote */}
+        {/* Training Tip */}
         <View style={screenStyles.quoteCard}>
           <Ionicons
-            name="chatbox-outline"
+            name="bulb"
             size={24}
-            color={colors.primary}
+            color={colors.secondary}
             style={{ marginBottom: 10 }}
           />
           <Text style={screenStyles.quoteText}>
-            "The art of eight limbs teaches us that strength comes not from the
-            body alone, but from the harmony of mind, body, and spirit."
+            "Technique beats strength, timing beats speed, but consistency beats
+            everything."
           </Text>
-          <Text style={screenStyles.quoteAuthor}>
-            - Traditional Muay Thai Wisdom
-          </Text>
+          <Text style={screenStyles.quoteAuthor}>- Training Wisdom</Text>
         </View>
       </Animated.View>
     </ScrollView>
   );
+};
+
+const styles = {
+  sessionCard: {
+    backgroundColor: colors.cardBackground,
+    borderRadius: 15,
+    padding: 20,
+    marginBottom: 15,
+    borderWidth: 1,
+    borderColor: colors.cardBorder,
+  },
+  sessionHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 15,
+  },
+  sessionTypeIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 15,
+  },
+  sessionInfo: {
+    flex: 1,
+  },
+  sessionType: {
+    fontSize: 16,
+    fontWeight: "bold",
+    color: colors.text,
+    marginBottom: 4,
+  },
+  sessionDate: {
+    fontSize: 14,
+    color: colors.textSecondary,
+  },
+  sessionStats: {
+    alignItems: "flex-end",
+  },
+  intensityBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  intensityText: {
+    fontSize: 12,
+    fontWeight: "600",
+  },
+  sessionDetails: {
+    flexDirection: "row",
+    gap: 20,
+  },
+  sessionDetail: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  sessionDetailText: {
+    fontSize: 14,
+    color: colors.textSecondary,
+  },
 };
 
 export default HomeScreen;

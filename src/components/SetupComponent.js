@@ -1,6 +1,3 @@
-// src/components/SetupComponent.js
-// Complete, working setup component with grading system integration
-
 import React, { useState } from "react";
 import {
   View,
@@ -12,146 +9,178 @@ import {
 import { collection, addDoc, getDocs } from "firebase/firestore";
 import { db } from "../config/firebase";
 import { colors } from "../constants/colors";
-import GradingSystemSetup from "../setup/GradingSystemSetup";
 
 const SetupComponent = () => {
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState("");
 
-  const sampleAchievements = [
+  const sampleTrainingSessions = [
     {
-      title: "First Class",
-      description: "Completed your first training session",
-      icon: "trophy-outline",
-      points: 10,
-      category: "milestone",
+      type: "Bag Work",
+      rounds: 6,
+      intensity: 8,
+      duration: 30,
+      date: new Date(),
+      notes: "Focused on power combinations",
+      calories: 280,
+      userId: "sample_user_1",
     },
     {
-      title: "Consistent Warrior",
-      description: "Trained 10 days in a row",
-      icon: "flame-outline",
-      points: 50,
-      category: "consistency",
+      type: "Sparring",
+      rounds: 5,
+      intensity: 9,
+      duration: 25,
+      date: new Date(Date.now() - 24 * 60 * 60 * 1000),
+      notes: "Great defensive work",
+      calories: 350,
+      userId: "sample_user_1",
     },
     {
-      title: "Early Bird",
-      description: "Attended 10 morning classes",
-      icon: "sunny-outline",
-      points: 30,
-      category: "dedication",
-    },
-    {
-      title: "Weekend Warrior",
-      description: "Perfect weekend attendance for a month",
-      icon: "calendar-outline",
-      points: 40,
-      category: "consistency",
-    },
-    {
-      title: "Sparring Ready",
-      description: "Completed 5 sparring sessions",
-      icon: "shield-outline",
-      points: 75,
-      category: "skill",
-    },
-    {
-      title: "Technique Master",
-      description: "Attended 20 intermediate classes",
-      icon: "star-outline",
-      points: 60,
-      category: "skill",
+      type: "Pad Work",
+      rounds: 8,
+      intensity: 7,
+      duration: 40,
+      date: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000),
+      notes: "Working on timing",
+      calories: 320,
+      userId: "sample_user_1",
     },
   ];
 
-  const setupRealisticClasses = async () => {
+  const sampleAchievements = [
+    {
+      title: "First Blood",
+      description: "Completed your first training session",
+      icon: "trophy",
+      points: 100,
+      rarity: "common",
+      category: "milestone",
+    },
+    {
+      title: "Week Warrior",
+      description: "Train 5 times in a week",
+      icon: "calendar",
+      points: 200,
+      rarity: "uncommon",
+      category: "consistency",
+    },
+    {
+      title: "Sparring Legend",
+      description: "Complete 25 sparring sessions",
+      icon: "people",
+      points: 500,
+      rarity: "rare",
+      category: "skill",
+    },
+    {
+      title: "Iron Will",
+      description: "Maintain a 30-day streak",
+      icon: "flame",
+      points: 1000,
+      rarity: "legendary",
+      category: "dedication",
+    },
+  ];
+
+  const sampleChallenges = [
+    {
+      title: "Weekly Warrior",
+      description: "Complete 5 training sessions this week",
+      type: "weekly",
+      target: 5,
+      reward: 200,
+      deadline: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+      status: "active",
+    },
+    {
+      title: "Intensity Beast",
+      description: "Complete 3 high-intensity sessions (RPE 8+)",
+      type: "weekly",
+      target: 3,
+      reward: 150,
+      deadline: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+      status: "active",
+    },
+    {
+      title: "Sparring Master",
+      description: "Complete 10 sparring sessions this month",
+      type: "monthly",
+      target: 10,
+      reward: 500,
+      deadline: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+      status: "active",
+    },
+  ];
+
+  const sampleFeedPosts = [
+    {
+      userId: "sample_user_1",
+      userName: "Mike Rodriguez",
+      userAvatar: "MR",
+      userGym: "Iron Fist Gym",
+      userLevel: "Amateur",
+      sessionType: "Sparring",
+      sessionDuration: 45,
+      sessionRounds: 8,
+      sessionIntensity: 9,
+      sessionNotes: "Epic sparring session! Really pushed my limits today 💪",
+      timestamp: new Date(),
+      likes: [],
+      comments: [],
+    },
+    {
+      userId: "sample_user_2",
+      userName: "Sarah Chen",
+      userAvatar: "SC",
+      userGym: "Warriors Academy",
+      userLevel: "Pro",
+      sessionType: "Pad Work",
+      sessionDuration: 60,
+      sessionRounds: 12,
+      sessionIntensity: 8,
+      sessionNotes:
+        "Perfect technique session. Left hook is getting deadly! 🔥",
+      timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000),
+      likes: [],
+      comments: [],
+    },
+  ];
+
+  const setupTrainingSessions = async () => {
     try {
       setLoading(true);
-      setStatus("Setting up continuous weekly recurring classes...");
+      setStatus("Setting up training sessions...");
 
-      // Dynamic import to avoid import issues
-      const {
-        setupContinuousWeeklyClasses,
-      } = require("../setup/WeeklyClassesSetup");
-      const result = await setupContinuousWeeklyClasses(8); // Generate 8 weeks
+      const sessionsRef = collection(db, "trainingSessions");
 
-      if (result.success) {
-        setStatus(`Successfully created ${result.classCount} classes!`);
-        Alert.alert(
-          "Success! 🥊",
-          `Created ${result.classCount} realistic classes for the next ${result.weeksGenerated} weeks.\n\nThis schedule will automatically maintain itself - old classes are cleaned up and new weeks are added as needed.`,
-          [{ text: "Awesome!", style: "default" }],
+      for (const session of sampleTrainingSessions) {
+        const docRef = await addDoc(sessionsRef, {
+          ...session,
+          createdAt: new Date(),
+        });
+        console.log(
+          `Added training session: ${session.type} with ID: ${docRef.id}`,
         );
-      } else {
-        setStatus("Error setting up classes");
-        Alert.alert("Error", result.error);
       }
+
+      setStatus("Training sessions added successfully!");
+      Alert.alert(
+        "Success",
+        "Sample training sessions have been added to Firebase!",
+      );
     } catch (error) {
-      console.error("Error setting up classes:", error);
-      setStatus("Error setting up classes");
+      console.error("Error adding training sessions:", error);
+      setStatus("Error adding training sessions");
       Alert.alert("Error", error.message);
     } finally {
       setLoading(false);
     }
   };
 
-  const maintainSchedule = async () => {
+  const setupAchievements = async () => {
     try {
       setLoading(true);
-      setStatus("Maintaining schedule...");
-
-      const { maintainSchedule } = require("../setup/WeeklyClassesSetup");
-      const result = await maintainSchedule();
-
-      if (result.success) {
-        setStatus("Schedule maintained successfully!");
-        Alert.alert("Schedule Updated! 🔄", result.message, [
-          { text: "Great!", style: "default" },
-        ]);
-      } else {
-        setStatus("Error maintaining schedule");
-        Alert.alert("Error", result.error);
-      }
-    } catch (error) {
-      console.error("Error maintaining schedule:", error);
-      setStatus("Error maintaining schedule");
-      Alert.alert("Error", error.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const addNextWeek = async () => {
-    try {
-      setLoading(true);
-      setStatus("Adding next week of classes...");
-
-      const { addNextWeek } = require("../setup/WeeklyClassesSetup");
-      const result = await addNextWeek();
-
-      if (result.success) {
-        setStatus(`Added ${result.classCount} classes!`);
-        Alert.alert(
-          "Week Added! 📅",
-          `Successfully added ${result.classCount} classes for the week starting ${result.weekStart.toDateString()}`,
-          [{ text: "Perfect!", style: "default" }],
-        );
-      } else {
-        setStatus("Error adding next week");
-        Alert.alert("Error", result.error);
-      }
-    } catch (error) {
-      console.error("Error adding next week:", error);
-      setStatus("Error adding next week");
-      Alert.alert("Error", error.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const addSampleAchievements = async () => {
-    try {
-      setLoading(true);
-      setStatus("Adding achievements...");
+      setStatus("Setting up achievements...");
 
       const achievementsRef = collection(db, "achievements");
 
@@ -176,82 +205,78 @@ const SetupComponent = () => {
     }
   };
 
-  // Add grading system setup methods
-  const setupGradingSystem = async () => {
+  const setupChallenges = async () => {
     try {
       setLoading(true);
-      setStatus("Setting up grading system...");
+      setStatus("Setting up challenges...");
 
-      const result = await GradingSystemSetup.setupCompleteGradingSystem();
+      const challengesRef = collection(db, "challenges");
 
-      if (result.success) {
-        setStatus("Grading system setup complete!");
-        Alert.alert(
-          "Grading System Ready! 🥊",
-          `Successfully set up the complete Muay Thai grading system:\n\n` +
-            `• ${result.details.sessions.sessionsCount} grading sessions created\n` +
-            `• ${result.details.userUpdates.usersUpdated} users updated with bands\n` +
-            `• ${result.details.sampleApplications.applicationsCount} sample applications created\n\n` +
-            `Users can now track their grading progress and apply for gradings!`,
-          [{ text: "Excellent!", style: "default" }],
+      for (const challenge of sampleChallenges) {
+        const docRef = await addDoc(challengesRef, challenge);
+        console.log(
+          `Added challenge: ${challenge.title} with ID: ${docRef.id}`,
         );
-      } else {
-        setStatus("Error setting up grading system");
-        Alert.alert("Error", result.error);
       }
+
+      setStatus("Challenges added successfully!");
+      Alert.alert("Success", "Sample challenges have been added to Firebase!");
     } catch (error) {
-      console.error("Error setting up grading system:", error);
-      setStatus("Error setting up grading system");
+      console.error("Error adding challenges:", error);
+      setStatus("Error adding challenges");
       Alert.alert("Error", error.message);
     } finally {
       setLoading(false);
     }
   };
 
-  const cleanupGradingData = async () => {
+  const setupFeedPosts = async () => {
     try {
       setLoading(true);
-      setStatus("Cleaning up grading data...");
+      setStatus("Setting up social feed...");
 
-      const result = await GradingSystemSetup.cleanupGradingData();
+      const feedRef = collection(db, "socialFeed");
 
-      if (result.success) {
-        setStatus("Grading data cleaned up!");
-        Alert.alert("Cleanup Complete", result.message);
-      } else {
-        setStatus("Error cleaning up grading data");
-        Alert.alert("Error", result.error);
+      for (const post of sampleFeedPosts) {
+        const docRef = await addDoc(feedRef, post);
+        console.log(
+          `Added feed post by: ${post.userName} with ID: ${docRef.id}`,
+        );
       }
+
+      setStatus("Social feed added successfully!");
+      Alert.alert(
+        "Success",
+        "Sample social feed posts have been added to Firebase!",
+      );
     } catch (error) {
-      console.error("Error cleaning up grading data:", error);
-      setStatus("Error cleaning up grading data");
+      console.error("Error adding feed posts:", error);
+      setStatus("Error adding feed posts");
       Alert.alert("Error", error.message);
     } finally {
       setLoading(false);
     }
   };
 
-  const updateUsersWithGrading = async () => {
+  const setupAllData = async () => {
     try {
       setLoading(true);
-      setStatus("Updating users with grading system...");
+      setStatus("Setting up complete FightTracker database...");
 
-      const result = await GradingSystemSetup.updateExistingUsersWithGrading();
+      await setupTrainingSessions();
+      await setupAchievements();
+      await setupChallenges();
+      await setupFeedPosts();
 
-      if (result.success) {
-        setStatus("Users updated with grading system!");
-        Alert.alert(
-          "Users Updated! 🎯",
-          `Successfully updated ${result.usersUpdated} users with grading bands based on their class attendance.`,
-          [{ text: "Great!", style: "default" }],
-        );
-      } else {
-        setStatus("Error updating users");
-        Alert.alert("Error", result.error);
-      }
+      setStatus("Complete setup finished!");
+      Alert.alert(
+        "Setup Complete! 🥊",
+        "FightTracker database has been fully configured with sample data including training sessions, achievements, challenges, and social feed posts.",
+        [{ text: "Awesome!", style: "default" }],
+      );
     } catch (error) {
-      console.error("Error updating users:", error);
-      setStatus("Error updating users");
+      console.error("Error in complete setup:", error);
+      setStatus("Error in complete setup");
       Alert.alert("Error", error.message);
     } finally {
       setLoading(false);
@@ -263,9 +288,11 @@ const SetupComponent = () => {
       setLoading(true);
       setStatus("Checking data...");
 
-      // Check classes
-      const classesSnapshot = await getDocs(collection(db, "classes"));
-      const classCount = classesSnapshot.size;
+      // Check training sessions
+      const sessionsSnapshot = await getDocs(
+        collection(db, "trainingSessions"),
+      );
+      const sessionCount = sessionsSnapshot.size;
 
       // Check achievements
       const achievementsSnapshot = await getDocs(
@@ -273,44 +300,24 @@ const SetupComponent = () => {
       );
       const achievementCount = achievementsSnapshot.size;
 
-      // Check grading sessions
-      const gradingSessionsSnapshot = await getDocs(
-        collection(db, "gradingSessions"),
-      );
-      const gradingSessionsCount = gradingSessionsSnapshot.size;
+      // Check challenges
+      const challengesSnapshot = await getDocs(collection(db, "challenges"));
+      const challengeCount = challengesSnapshot.size;
 
-      // Check grading applications
-      const gradingApplicationsSnapshot = await getDocs(
-        collection(db, "gradingApplications"),
-      );
-      const gradingApplicationsCount = gradingApplicationsSnapshot.size;
-
-      // Get class breakdown by day
-      const classesByDay = {};
-      classesSnapshot.docs.forEach((doc) => {
-        const data = doc.data();
-        const date = data.datetime?.toDate();
-        if (date) {
-          const dayName = date.toLocaleDateString("en-US", { weekday: "long" });
-          classesByDay[dayName] = (classesByDay[dayName] || 0) + 1;
-        }
-      });
-
-      const breakdown = Object.entries(classesByDay)
-        .map(([day, count]) => `${day}: ${count}`)
-        .join("\n");
+      // Check social feed
+      const feedSnapshot = await getDocs(collection(db, "socialFeed"));
+      const feedCount = feedSnapshot.size;
 
       setStatus(
-        `Found ${classCount} classes, ${achievementCount} achievements, ${gradingSessionsCount} grading sessions, ${gradingApplicationsCount} applications`,
+        `Found ${sessionCount} sessions, ${achievementCount} achievements, ${challengeCount} challenges, ${feedCount} posts`,
       );
       Alert.alert(
         "Data Check",
-        `📊 Database Status:\n\n` +
-          `Classes: ${classCount}\n` +
+        `📊 FightTracker Database Status:\n\n` +
+          `Training Sessions: ${sessionCount}\n` +
           `Achievements: ${achievementCount}\n` +
-          `Grading Sessions: ${gradingSessionsCount}\n` +
-          `Grading Applications: ${gradingApplicationsCount}\n\n` +
-          `Classes by Day:\n${breakdown}`,
+          `Challenges: ${challengeCount}\n` +
+          `Social Feed Posts: ${feedCount}`,
         [{ text: "OK", style: "default" }],
       );
     } catch (error) {
@@ -321,132 +328,79 @@ const SetupComponent = () => {
     }
   };
 
-  const showScheduleSummary = () => {
-    try {
-      const { getScheduleSummary } = require("../setup/WeeklyClassesSetup");
-      const summary = getScheduleSummary();
-      const byDayText = Object.entries(summary.byDay)
-        .map(([day, count]) => `${day}: ${count} classes`)
-        .join("\n");
-
-      const byLevelText = Object.entries(summary.byLevel)
-        .map(([level, count]) => `${level}: ${count} classes`)
-        .join("\n");
-
-      Alert.alert(
-        "Weekly Schedule Summary",
-        `📅 Total Classes per Week: ${summary.totalClasses}\n\n` +
-          `By Day:\n${byDayText}\n\n` +
-          `By Level:\n${byLevelText}`,
-        [{ text: "Got it!", style: "default" }],
-      );
-    } catch (error) {
-      Alert.alert(
-        "Error",
-        "Could not load schedule summary. Make sure WeeklyClassesSetup.js is created.",
-      );
-    }
-  };
-
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>8 Limbs Gym Complete Setup</Text>
+      <Text style={styles.title}>FightTracker Complete Setup</Text>
       <Text style={styles.subtitle}>
-        Complete setup for classes, achievements, and grading system
+        Setup your FightTracker database with sample training data,
+        achievements, challenges, and social features
       </Text>
 
       {status ? <Text style={styles.status}>{status}</Text> : null}
 
-      {/* Schedule Management */}
-      <TouchableOpacity
-        style={styles.button}
-        onPress={showScheduleSummary}
-        disabled={loading}
-      >
-        <Text style={styles.buttonText}>📋 View Schedule Summary</Text>
-      </TouchableOpacity>
-
+      {/* Complete Setup */}
       <TouchableOpacity
         style={[styles.button, styles.primaryButton]}
-        onPress={setupRealisticClasses}
+        onPress={setupAllData}
         disabled={loading}
       >
         {loading ? (
           <ActivityIndicator color={colors.text} />
         ) : (
-          <Text style={styles.buttonText}>
-            🗓️ Setup Class Schedule (8 weeks)
-          </Text>
+          <Text style={styles.buttonText}>🥊 Complete FightTracker Setup</Text>
+        )}
+      </TouchableOpacity>
+
+      {/* Individual Setup Options */}
+      <TouchableOpacity
+        style={styles.button}
+        onPress={setupTrainingSessions}
+        disabled={loading}
+      >
+        {loading ? (
+          <ActivityIndicator color={colors.text} />
+        ) : (
+          <Text style={styles.buttonText}>💪 Setup Training Sessions</Text>
         )}
       </TouchableOpacity>
 
       <TouchableOpacity
         style={styles.button}
-        onPress={addNextWeek}
+        onPress={setupAchievements}
         disabled={loading}
       >
         {loading ? (
           <ActivityIndicator color={colors.text} />
         ) : (
-          <Text style={styles.buttonText}>➕ Add Next Week</Text>
+          <Text style={styles.buttonText}>🏆 Setup Achievements</Text>
         )}
       </TouchableOpacity>
 
       <TouchableOpacity
         style={styles.button}
-        onPress={maintainSchedule}
+        onPress={setupChallenges}
         disabled={loading}
       >
         {loading ? (
           <ActivityIndicator color={colors.text} />
         ) : (
-          <Text style={styles.buttonText}>🔄 Maintain Schedule</Text>
+          <Text style={styles.buttonText}>🎯 Setup Challenges</Text>
         )}
       </TouchableOpacity>
 
-      {/* Grading System Management */}
-      <TouchableOpacity
-        style={[styles.button, styles.gradingButton]}
-        onPress={setupGradingSystem}
-        disabled={loading}
-      >
-        {loading ? (
-          <ActivityIndicator color={colors.text} />
-        ) : (
-          <Text style={styles.buttonText}>
-            🥋 Setup Complete Grading System
-          </Text>
-        )}
-      </TouchableOpacity>
-
-      <TouchableOpacity
-        style={[styles.button, styles.gradingButton]}
-        onPress={updateUsersWithGrading}
-        disabled={loading}
-      >
-        {loading ? (
-          <ActivityIndicator color={colors.text} />
-        ) : (
-          <Text style={styles.buttonText}>
-            🎯 Update Users with Grading Bands
-          </Text>
-        )}
-      </TouchableOpacity>
-
-      {/* Achievements */}
       <TouchableOpacity
         style={styles.button}
-        onPress={addSampleAchievements}
+        onPress={setupFeedPosts}
         disabled={loading}
       >
         {loading ? (
           <ActivityIndicator color={colors.text} />
         ) : (
-          <Text style={styles.buttonText}>🏆 Add Achievements</Text>
+          <Text style={styles.buttonText}>📱 Setup Social Feed</Text>
         )}
       </TouchableOpacity>
 
-      {/* Data Management */}
+      {/* Data Check */}
       <TouchableOpacity
         style={[styles.button, styles.secondaryButton]}
         onPress={checkData}
@@ -461,55 +415,20 @@ const SetupComponent = () => {
         )}
       </TouchableOpacity>
 
-      <TouchableOpacity
-        style={[styles.button, styles.dangerButton]}
-        onPress={cleanupGradingData}
-        disabled={loading}
-      >
-        {loading ? (
-          <ActivityIndicator color={colors.primary} />
-        ) : (
-          <Text style={[styles.buttonText, styles.dangerButtonText]}>
-            🗑️ Cleanup Grading Data
-          </Text>
-        )}
-      </TouchableOpacity>
-
-      {/* Info boxes */}
+      {/* Info */}
       <View style={styles.infoBox}>
-        <Text style={styles.infoTitle}>🔄 Continuous Scheduling:</Text>
+        <Text style={styles.infoTitle}>🥊 FightTracker Setup:</Text>
         <Text style={styles.infoText}>
-          • Initial setup: 8 weeks of classes{"\n"}• Automatic maintenance
-          available{"\n"}• Add individual weeks as needed{"\n"}• Old classes
-          auto-cleanup{"\n"}• Always keeps 6+ weeks scheduled{"\n"}• Perfect for
-          ongoing gym operations
-        </Text>
-      </View>
-
-      <View style={styles.infoBox}>
-        <Text style={styles.infoTitle}>🥋 Grading System Features:</Text>
-        <Text style={styles.infoText}>
-          • 10-band progression system (White to Red){"\n"}• Automatic band
-          assignment based on attendance{"\n"}• Monthly grading sessions{"\n"}•
-          Application and approval process{"\n"}• Progress tracking and
-          requirements{"\n"}• Integration with progress screen
-        </Text>
-      </View>
-
-      <View style={styles.infoBox}>
-        <Text style={styles.infoTitle}>📋 What this creates per week:</Text>
-        <Text style={styles.infoText}>
-          • 17 different class types per week{"\n"}• Junior & Adult categories
-          {"\n"}• Beginner to Advanced levels{"\n"}• Realistic pricing &
-          capacity{"\n"}• Proper time slots & instructors{"\n"}• Special classes
-          (Fighters, Sparring)
+          • Sample training sessions (Bag Work, Sparring, Pad Work){"\n"}•
+          Achievement system with rarity levels{"\n"}• Weekly and monthly
+          challenges{"\n"}• Social feed posts for community features{"\n"}•
+          Complete fighter profile data{"\n"}• Ready for production use
         </Text>
       </View>
 
       <Text style={styles.note}>
-        ⚠️ Note: The continuous schedule maintains itself. Use "Maintain
-        Schedule" weekly to clean old classes and ensure 6+ weeks are always
-        scheduled ahead. Remove this component before production.
+        ⚠️ Note: This setup creates sample data for development and testing.
+        Remove this component before production deployment.
       </Text>
     </View>
   );
@@ -554,20 +473,10 @@ const styles = {
     borderWidth: 2,
     borderColor: colors.primary + "80",
   },
-  gradingButton: {
-    backgroundColor: "#8B5CF6", // Purple for grading system
-    borderWidth: 2,
-    borderColor: "#8B5CF6" + "80",
-  },
   secondaryButton: {
     backgroundColor: "transparent",
     borderWidth: 1,
     borderColor: colors.primary,
-  },
-  dangerButton: {
-    backgroundColor: "transparent",
-    borderWidth: 1,
-    borderColor: "#EF4444",
   },
   buttonText: {
     color: colors.text,
@@ -576,9 +485,6 @@ const styles = {
   },
   secondaryButtonText: {
     color: colors.primary,
-  },
-  dangerButtonText: {
-    color: "#EF4444",
   },
   infoBox: {
     backgroundColor: colors.backgroundLight,

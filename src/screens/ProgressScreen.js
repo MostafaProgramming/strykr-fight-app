@@ -1,784 +1,622 @@
-// src/screens/ProgressScreen.js - Enhanced with Grading System
 import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
   ScrollView,
   TouchableOpacity,
-  ActivityIndicator,
+  Dimensions,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { colors } from "../constants/colors";
-import { mockAchievements } from "../data/mockData";
 import { screenStyles } from "../styles/screenStyles";
-import {
-  getGradingBand,
-  getNextGradingBand,
-  getGradingProgress,
-} from "../constants/gradingSystem";
-import gradingService from "../services/gradingService";
+
+const { width } = Dimensions.get("window");
 
 const ProgressScreen = ({ member, onNavigate }) => {
-  const [gradingApplications, setGradingApplications] = useState([]);
-  const [loading, setLoading] = useState(true);
-
-  // Calculate user's training duration in months
-  const getMonthsTraining = () => {
-    const memberSinceDate = new Date(member.memberSince || "2024-01-01");
-    const now = new Date();
-    const monthsDiff =
-      (now.getFullYear() - memberSinceDate.getFullYear()) * 12 +
-      (now.getMonth() - memberSinceDate.getMonth());
-    return Math.max(monthsDiff, 0);
-  };
-
-  const userStats = {
-    classesAttended: member.classesAttended || 0,
-    monthsTraining: getMonthsTraining(),
-  };
-
-  const currentBandId = member.currentBand || 1;
-  const currentBand = getGradingBand(currentBandId);
-  const nextBand = getNextGradingBand(currentBandId);
-  const progress = getGradingProgress(userStats, currentBandId);
+  const [selectedPeriod, setSelectedPeriod] = useState("week");
+  const [achievements, setAchievements] = useState([]);
+  const [stats, setStats] = useState({});
 
   useEffect(() => {
-    const fetchGradingData = async () => {
-      try {
-        const result = await gradingService.getUserGradingApplications(
-          member.uid,
-        );
-        if (result.success) {
-          setGradingApplications(result.applications);
-        }
-      } catch (error) {
-        console.error("Error fetching grading data:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
+    // Mock achievements data
+    setAchievements([
+      {
+        id: 1,
+        title: "First Session",
+        description: "Completed your first training session",
+        icon: "trophy",
+        earned: true,
+        earnedDate: "2025-05-15",
+        points: 100,
+      },
+      {
+        id: 2,
+        title: "Week Warrior",
+        description: "Trained 5 times in a week",
+        icon: "calendar",
+        earned: true,
+        earnedDate: "2025-05-28",
+        points: 200,
+      },
+      {
+        id: 3,
+        title: "Sparring Ready",
+        description: "Complete 10 sparring sessions",
+        icon: "people",
+        earned: false,
+        progress: 7,
+        target: 10,
+        points: 500,
+      },
+      {
+        id: 4,
+        title: "Iron Will",
+        description: "Train 30 days in a row",
+        icon: "flame",
+        earned: false,
+        progress: 12,
+        target: 30,
+        points: 1000,
+      },
+      {
+        id: 5,
+        title: "Technique Master",
+        description: "Complete 50 pad work sessions",
+        icon: "hand-left",
+        earned: false,
+        progress: 23,
+        target: 50,
+        points: 750,
+      },
+    ]);
 
-    if (member.uid) {
-      fetchGradingData();
-    } else {
-      setLoading(false);
+    // Mock stats data
+    setStats({
+      week: {
+        sessions: 4,
+        totalTime: 180,
+        avgIntensity: 7.2,
+        calories: 1240,
+        streak: 7,
+      },
+      month: {
+        sessions: 16,
+        totalTime: 720,
+        avgIntensity: 7.4,
+        calories: 4980,
+        streak: 7,
+      },
+      year: {
+        sessions: 142,
+        totalTime: 6240,
+        avgIntensity: 7.1,
+        calories: 42800,
+        streak: 7,
+      },
+    });
+  }, []);
+
+  const periods = [
+    { id: "week", label: "Week" },
+    { id: "month", label: "Month" },
+    { id: "year", label: "Year" },
+  ];
+
+  const currentStats = stats[selectedPeriod] || {};
+
+  const formatTime = (minutes) => {
+    const hours = Math.floor(minutes / 60);
+    const mins = minutes % 60;
+    if (hours > 0) {
+      return `${hours}h ${mins}m`;
     }
-  }, [member.uid]);
-
-  const GradingProgressCard = () => (
-    <TouchableOpacity
-      style={styles.gradingCard}
-      onPress={() => onNavigate && onNavigate("grading")}
-    >
-      <View style={styles.gradingHeader}>
-        <View style={styles.gradingIconContainer}>
-          <View
-            style={[styles.gradingRope, { backgroundColor: currentBand.color }]}
-          />
-          <Ionicons name="trophy" size={20} color={colors.primary} />
-        </View>
-        <View style={styles.gradingInfo}>
-          <Text style={styles.gradingTitle}>Muay Thai Grading</Text>
-          <Text style={styles.currentGrade}>Current: {currentBand.name}</Text>
-        </View>
-        <Ionicons
-          name="chevron-forward"
-          size={20}
-          color={colors.textSecondary}
-        />
-      </View>
-
-      {!progress.isMaxLevel ? (
-        <>
-          <View style={styles.gradingProgressContainer}>
-            <Text style={styles.nextGradeText}>Next: {nextBand.name}</Text>
-            <View style={styles.gradingProgressBar}>
-              <View
-                style={[
-                  styles.gradingProgressFill,
-                  { width: `${progress.overallProgress}%` },
-                ]}
-              />
-            </View>
-            <Text style={styles.gradingProgressText}>
-              {Math.round(progress.overallProgress)}% complete
-            </Text>
-          </View>
-
-          <View style={styles.gradingRequirements}>
-            <View style={styles.requirementRow}>
-              <Ionicons
-                name={
-                  userStats.classesAttended >= (nextBand?.minimumClasses || 0)
-                    ? "checkmark-circle"
-                    : "ellipse-outline"
-                }
-                size={16}
-                color={
-                  userStats.classesAttended >= (nextBand?.minimumClasses || 0)
-                    ? colors.success
-                    : colors.textSecondary
-                }
-              />
-              <Text style={styles.requirementText}>
-                Classes: {userStats.classesAttended}/
-                {nextBand?.minimumClasses || 0}
-              </Text>
-            </View>
-            <View style={styles.requirementRow}>
-              <Ionicons
-                name={
-                  userStats.monthsTraining >= (nextBand?.minimumTimeMonths || 0)
-                    ? "checkmark-circle"
-                    : "ellipse-outline"
-                }
-                size={16}
-                color={
-                  userStats.monthsTraining >= (nextBand?.minimumTimeMonths || 0)
-                    ? colors.success
-                    : colors.textSecondary
-                }
-              />
-              <Text style={styles.requirementText}>
-                Training: {userStats.monthsTraining}/
-                {nextBand?.minimumTimeMonths || 0} months
-              </Text>
-            </View>
-          </View>
-
-          {progress.canGrade && (
-            <View style={styles.readyToGradeIndicator}>
-              <Ionicons name="star" size={16} color={colors.warning} />
-              <Text style={styles.readyToGradeText}>
-                Ready for next grading!
-              </Text>
-            </View>
-          )}
-        </>
-      ) : (
-        <View style={styles.maxLevelIndicator}>
-          <Ionicons name="trophy" size={24} color={colors.primary} />
-          <Text style={styles.maxLevelText}>Maximum Level Achieved!</Text>
-          <Text style={styles.maxLevelSubtext}>
-            You are a Master of Muay Thai
-          </Text>
-        </View>
-      )}
-
-      {/* Recent Application Status */}
-      {gradingApplications.length > 0 && (
-        <View style={styles.recentApplicationContainer}>
-          <Text style={styles.recentApplicationTitle}>Latest Application:</Text>
-          <View style={styles.recentApplication}>
-            <Text style={styles.applicationGrade}>
-              {getGradingBand(gradingApplications[0].targetBandId).name}
-            </Text>
-            <View
-              style={[
-                styles.applicationStatusBadge,
-                {
-                  backgroundColor:
-                    getStatusColor(gradingApplications[0].status) + "20",
-                },
-              ]}
-            >
-              <Text
-                style={[
-                  styles.applicationStatusText,
-                  { color: getStatusColor(gradingApplications[0].status) },
-                ]}
-              >
-                {gradingApplications[0].status.toUpperCase()}
-              </Text>
-            </View>
-          </View>
-        </View>
-      )}
-    </TouchableOpacity>
-  );
-
-  const getStatusColor = (status) => {
-    switch (status) {
-      case "pending":
-        return colors.warning;
-      case "approved":
-        return colors.success;
-      case "rejected":
-        return "#FF5722";
-      case "completed":
-        return colors.success;
-      default:
-        return colors.textSecondary;
-    }
+    return `${mins}m`;
   };
 
-  if (loading && member.uid) {
-    return (
-      <ScrollView
-        style={screenStyles.content}
-        showsVerticalScrollIndicator={false}
-      >
-        {/* Keep the basic progress overview while loading grading data */}
-        <View style={screenStyles.progressOverview}>
-          <Text style={screenStyles.sectionTitle}>Your Progress</Text>
+  const StatsCard = ({ icon, label, value, unit, color = colors.primary }) => (
+    <View style={styles.statsCard}>
+      <View style={[styles.statsIcon, { backgroundColor: color + "20" }]}>
+        <Ionicons name={icon} size={24} color={color} />
+      </View>
+      <Text style={styles.statsValue}>
+        {value}
+        {unit && <Text style={styles.statsUnit}>{unit}</Text>}
+      </Text>
+      <Text style={styles.statsLabel}>{label}</Text>
+    </View>
+  );
 
-          <View style={screenStyles.progressCard}>
-            <Text style={screenStyles.progressCardTitle}>Training Journey</Text>
-            <View style={screenStyles.progressStats}>
-              <View style={screenStyles.progressStat}>
-                <Text style={screenStyles.progressNumber}>
-                  {member.classesAttended}
-                </Text>
-                <Text style={screenStyles.progressLabel}>Total Classes</Text>
+  const AchievementCard = ({ achievement }) => (
+    <View
+      style={[
+        styles.achievementCard,
+        !achievement.earned && styles.lockedAchievement,
+      ]}
+    >
+      <View style={styles.achievementHeader}>
+        <View
+          style={[
+            styles.achievementIcon,
+            {
+              backgroundColor: achievement.earned
+                ? colors.secondary + "20"
+                : colors.cardBorder,
+            },
+          ]}
+        >
+          <Ionicons
+            name={achievement.icon}
+            size={24}
+            color={achievement.earned ? colors.secondary : colors.textSecondary}
+          />
+        </View>
+        <View style={styles.achievementInfo}>
+          <Text
+            style={[
+              styles.achievementTitle,
+              !achievement.earned && styles.lockedText,
+            ]}
+          >
+            {achievement.title}
+          </Text>
+          <Text
+            style={[
+              styles.achievementDesc,
+              !achievement.earned && styles.lockedText,
+            ]}
+          >
+            {achievement.description}
+          </Text>
+        </View>
+        <View style={styles.achievementPoints}>
+          <Text style={styles.pointsValue}>{achievement.points}</Text>
+          <Text style={styles.pointsLabel}>pts</Text>
+        </View>
+      </View>
+
+      {achievement.earned ? (
+        <View style={styles.earnedBadge}>
+          <Ionicons name="checkmark-circle" size={16} color={colors.success} />
+          <Text style={styles.earnedText}>
+            Earned {new Date(achievement.earnedDate).toLocaleDateString()}
+          </Text>
+        </View>
+      ) : achievement.progress !== undefined ? (
+        <View style={styles.progressContainer}>
+          <View style={styles.progressBar}>
+            <View
+              style={[
+                styles.progressFill,
+                {
+                  width: `${(achievement.progress / achievement.target) * 100}%`,
+                },
+              ]}
+            />
+          </View>
+          <Text style={styles.progressText}>
+            {achievement.progress} / {achievement.target}
+          </Text>
+        </View>
+      ) : null}
+    </View>
+  );
+
+  const TrainingTypeBreakdown = () => {
+    const trainingTypes = [
+      { type: "Bag Work", sessions: 45, color: colors.bagWork },
+      { type: "Pad Work", sessions: 38, color: colors.padWork },
+      { type: "Sparring", sessions: 25, color: colors.sparring },
+      { type: "Drills", sessions: 20, color: colors.drills },
+      { type: "Strength", sessions: 14, color: colors.strength },
+    ];
+
+    const totalSessions = trainingTypes.reduce(
+      (sum, type) => sum + type.sessions,
+      0,
+    );
+
+    return (
+      <View style={styles.breakdownContainer}>
+        <Text style={styles.breakdownTitle}>Training Distribution</Text>
+        {trainingTypes.map((type) => (
+          <View key={type.type} style={styles.breakdownItem}>
+            <View style={styles.breakdownHeader}>
+              <View
+                style={[
+                  styles.breakdownIcon,
+                  { backgroundColor: type.color + "20" },
+                ]}
+              >
+                <View
+                  style={[styles.breakdownDot, { backgroundColor: type.color }]}
+                />
               </View>
-              <View style={screenStyles.progressStat}>
-                <Text style={screenStyles.progressNumber}>
-                  {member.currentStreak}
-                </Text>
-                <Text style={screenStyles.progressLabel}>Current Streak</Text>
-              </View>
-              <View style={screenStyles.progressStat}>
-                <Text style={screenStyles.progressNumber}>
-                  {userStats.monthsTraining}
-                </Text>
-                <Text style={screenStyles.progressLabel}>Months Training</Text>
-              </View>
+              <Text style={styles.breakdownType}>{type.type}</Text>
+              <Text style={styles.breakdownSessions}>{type.sessions}</Text>
+            </View>
+            <View style={styles.breakdownProgress}>
+              <View
+                style={[
+                  styles.breakdownProgressFill,
+                  {
+                    width: `${(type.sessions / totalSessions) * 100}%`,
+                    backgroundColor: type.color,
+                  },
+                ]}
+              />
             </View>
           </View>
-        </View>
-
-        {/* Loading indicator for grading data */}
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="small" color={colors.primary} />
-          <Text style={styles.loadingText}>Loading grading progress...</Text>
-        </View>
-      </ScrollView>
+        ))}
+      </View>
     );
-  }
+  };
 
   return (
     <ScrollView
       style={screenStyles.content}
       showsVerticalScrollIndicator={false}
     >
-      {/* Enhanced Progress Overview */}
-      <View style={screenStyles.progressOverview}>
-        <Text style={screenStyles.sectionTitle}>Your Progress</Text>
-
-        <View style={screenStyles.progressCard}>
-          <Text style={screenStyles.progressCardTitle}>Training Journey</Text>
-          <View style={screenStyles.progressStats}>
-            <View style={screenStyles.progressStat}>
-              <Text style={screenStyles.progressNumber}>
-                {member.classesAttended}
-              </Text>
-              <Text style={screenStyles.progressLabel}>Total Classes</Text>
-            </View>
-            <View style={screenStyles.progressStat}>
-              <Text style={screenStyles.progressNumber}>
-                {member.currentStreak}
-              </Text>
-              <Text style={screenStyles.progressLabel}>Current Streak</Text>
-            </View>
-            <View style={screenStyles.progressStat}>
-              <Text style={screenStyles.progressNumber}>
-                {userStats.monthsTraining}
-              </Text>
-              <Text style={screenStyles.progressLabel}>Months Training</Text>
-            </View>
-          </View>
-        </View>
+      {/* Period Selector */}
+      <View style={screenStyles.tabContainer}>
+        {periods.map((period) => (
+          <TouchableOpacity
+            key={period.id}
+            style={[
+              screenStyles.tab,
+              selectedPeriod === period.id && screenStyles.activeTab,
+            ]}
+            onPress={() => setSelectedPeriod(period.id)}
+          >
+            <Text
+              style={[
+                screenStyles.tabText,
+                selectedPeriod === period.id && screenStyles.activeTabText,
+              ]}
+            >
+              {period.label}
+            </Text>
+          </TouchableOpacity>
+        ))}
       </View>
 
-      {/* Grading Progress Section */}
+      {/* Stats Overview */}
       <View style={screenStyles.section}>
-        <Text style={screenStyles.sectionTitle}>Grading Progress</Text>
-        <GradingProgressCard />
-      </View>
+        <Text style={screenStyles.sectionTitle}>
+          {selectedPeriod === "week"
+            ? "This Week"
+            : selectedPeriod === "month"
+              ? "This Month"
+              : "This Year"}
+        </Text>
 
-      {/* Quick Stats Grid */}
-      <View style={screenStyles.section}>
-        <Text style={screenStyles.sectionTitle}>Training Statistics</Text>
         <View style={styles.statsGrid}>
-          <View style={styles.statCard}>
-            <View style={styles.statIcon}>
-              <Ionicons name="calendar" size={24} color={colors.primary} />
-            </View>
-            <Text style={styles.statValue}>{member.memberSince}</Text>
-            <Text style={styles.statLabel}>Member Since</Text>
-          </View>
-
-          <View style={styles.statCard}>
-            <View style={styles.statIcon}>
-              <Ionicons name="trophy" size={24} color={colors.primary} />
-            </View>
-            <Text style={styles.statValue}>{currentBand.level}</Text>
-            <Text style={styles.statLabel}>Current Level</Text>
-          </View>
-
-          <View style={styles.statCard}>
-            <View style={styles.statIcon}>
-              <Ionicons name="trending-up" size={24} color={colors.primary} />
-            </View>
-            <Text style={styles.statValue}>
-              {Math.ceil(
-                (member.classesAttended || 0) /
-                  Math.max(userStats.monthsTraining, 1),
-              )}
-            </Text>
-            <Text style={styles.statLabel}>Classes/Month</Text>
-          </View>
+          <StatsCard
+            icon="fitness"
+            label="Sessions"
+            value={currentStats.sessions}
+            color={colors.primary}
+          />
+          <StatsCard
+            icon="timer"
+            label="Total Time"
+            value={formatTime(currentStats.totalTime)}
+            color={colors.secondary}
+          />
+          <StatsCard
+            icon="speedometer"
+            label="Avg Intensity"
+            value={currentStats.avgIntensity}
+            unit="/10"
+            color={colors.intensityHigh}
+          />
+          <StatsCard
+            icon="flame"
+            label="Calories"
+            value={currentStats.calories?.toLocaleString()}
+            color={colors.error}
+          />
         </View>
       </View>
 
-      {/* Training Milestones */}
-      <View style={screenStyles.section}>
-        <Text style={screenStyles.sectionTitle}>Training Milestones</Text>
-        <View style={styles.milestonesContainer}>
-          <View
-            style={[
-              styles.milestoneItem,
-              member.classesAttended >= 10 && styles.completedMilestone,
-            ]}
-          >
-            <Ionicons
-              name={
-                member.classesAttended >= 10
-                  ? "checkmark-circle"
-                  : "ellipse-outline"
-              }
-              size={20}
-              color={
-                member.classesAttended >= 10
-                  ? colors.success
-                  : colors.textSecondary
-              }
-            />
-            <Text style={styles.milestoneText}>First 10 Classes</Text>
-            <Text style={styles.milestoneProgress}>
-              {Math.min(member.classesAttended, 10)}/10
-            </Text>
-          </View>
-
-          <View
-            style={[
-              styles.milestoneItem,
-              member.classesAttended >= 50 && styles.completedMilestone,
-            ]}
-          >
-            <Ionicons
-              name={
-                member.classesAttended >= 50
-                  ? "checkmark-circle"
-                  : "ellipse-outline"
-              }
-              size={20}
-              color={
-                member.classesAttended >= 50
-                  ? colors.success
-                  : colors.textSecondary
-              }
-            />
-            <Text style={styles.milestoneText}>Dedicated Warrior</Text>
-            <Text style={styles.milestoneProgress}>
-              {Math.min(member.classesAttended, 50)}/50
-            </Text>
-          </View>
-
-          <View
-            style={[
-              styles.milestoneItem,
-              member.classesAttended >= 100 && styles.completedMilestone,
-            ]}
-          >
-            <Ionicons
-              name={
-                member.classesAttended >= 100
-                  ? "checkmark-circle"
-                  : "ellipse-outline"
-              }
-              size={20}
-              color={
-                member.classesAttended >= 100
-                  ? colors.success
-                  : colors.textSecondary
-              }
-            />
-            <Text style={styles.milestoneText}>Century Club</Text>
-            <Text style={styles.milestoneProgress}>
-              {Math.min(member.classesAttended, 100)}/100
-            </Text>
-          </View>
-
-          <View
-            style={[
-              styles.milestoneItem,
-              userStats.monthsTraining >= 12 && styles.completedMilestone,
-            ]}
-          >
-            <Ionicons
-              name={
-                userStats.monthsTraining >= 12
-                  ? "checkmark-circle"
-                  : "ellipse-outline"
-              }
-              size={20}
-              color={
-                userStats.monthsTraining >= 12
-                  ? colors.success
-                  : colors.textSecondary
-              }
-            />
-            <Text style={styles.milestoneText}>One Year Journey</Text>
-            <Text style={styles.milestoneProgress}>
-              {Math.min(userStats.monthsTraining, 12)}/12 months
-            </Text>
+      {/* Current Streak */}
+      <View style={styles.streakCard}>
+        <View style={styles.streakHeader}>
+          <Ionicons name="flame" size={32} color={colors.secondary} />
+          <View style={styles.streakInfo}>
+            <Text style={styles.streakNumber}>{currentStats.streak}</Text>
+            <Text style={styles.streakLabel}>Day Streak</Text>
           </View>
         </View>
+        <Text style={styles.streakDesc}>Keep it up! You're on fire 🔥</Text>
+      </View>
+
+      {/* Training Breakdown */}
+      <View style={screenStyles.section}>
+        <TrainingTypeBreakdown />
       </View>
 
       {/* Achievements */}
       <View style={screenStyles.section}>
-        <Text style={screenStyles.sectionTitle}>Achievements</Text>
-        {mockAchievements.map((achievement) => (
-          <View
-            key={achievement.id}
-            style={[
-              screenStyles.achievementCard,
-              !achievement.earned && screenStyles.lockedAchievement,
-            ]}
-          >
-            <Ionicons
-              name={achievement.earned ? "trophy" : "lock-closed"}
-              size={24}
-              color={achievement.earned ? colors.primary : colors.textSecondary}
-            />
-            <View style={screenStyles.achievementContent}>
-              <Text
-                style={[
-                  screenStyles.achievementTitle,
-                  !achievement.earned && screenStyles.lockedText,
-                ]}
-              >
-                {achievement.title}
-              </Text>
-              <Text
-                style={[
-                  screenStyles.achievementDesc,
-                  !achievement.earned && screenStyles.lockedText,
-                ]}
-              >
-                {achievement.desc}
-              </Text>
-            </View>
-            {achievement.earned && (
-              <View style={styles.achievementDate}>
-                <Text style={styles.achievementDateText}>Earned</Text>
-              </View>
-            )}
-          </View>
+        <View style={screenStyles.sectionHeader}>
+          <Text style={screenStyles.sectionTitle}>Achievements</Text>
+          <TouchableOpacity onPress={() => onNavigate("challenges")}>
+            <Text style={screenStyles.seeAllText}>See All</Text>
+          </TouchableOpacity>
+        </View>
+
+        {achievements.map((achievement) => (
+          <AchievementCard key={achievement.id} achievement={achievement} />
         ))}
       </View>
 
-      {/* Training Insights */}
+      {/* Quick Actions */}
       <View style={screenStyles.section}>
-        <Text style={screenStyles.sectionTitle}>Training Insights</Text>
-        <View style={styles.insightsCard}>
-          <View style={styles.insightItem}>
-            <Ionicons name="analytics" size={20} color={colors.primary} />
-            <View style={styles.insightContent}>
-              <Text style={styles.insightTitle}>Training Consistency</Text>
-              <Text style={styles.insightDescription}>
-                {member.currentStreak > 7
-                  ? "Excellent consistency! Keep up the great work."
-                  : member.currentStreak > 3
-                    ? "Good training rhythm. Try to build longer streaks."
-                    : "Focus on building consistent training habits."}
-              </Text>
-            </View>
+        <Text style={screenStyles.sectionTitle}>Analytics</Text>
+        <TouchableOpacity
+          style={styles.analyticsButton}
+          onPress={() => onNavigate("stats")}
+        >
+          <View style={styles.analyticsIcon}>
+            <Ionicons name="analytics" size={24} color={colors.primary} />
           </View>
-
-          <View style={styles.insightItem}>
-            <Ionicons name="trending-up" size={20} color={colors.primary} />
-            <View style={styles.insightContent}>
-              <Text style={styles.insightTitle}>Progress Rate</Text>
-              <Text style={styles.insightDescription}>
-                {!progress.isMaxLevel
-                  ? `You're ${Math.round(progress.overallProgress)}% ready for ${nextBand.name} grading.`
-                  : "You've mastered all grading levels - amazing dedication!"}
-              </Text>
-            </View>
+          <View style={styles.analyticsInfo}>
+            <Text style={styles.analyticsTitle}>Detailed Statistics</Text>
+            <Text style={styles.analyticsDesc}>
+              View charts, trends, and detailed breakdowns
+            </Text>
           </View>
-
-          <View style={styles.insightItem}>
-            <Ionicons name="target" size={20} color={colors.primary} />
-            <View style={styles.insightContent}>
-              <Text style={styles.insightTitle}>Next Focus</Text>
-              <Text style={styles.insightDescription}>
-                {!progress.isMaxLevel && progress.classesNeeded > 0
-                  ? `Complete ${progress.classesNeeded} more classes to meet grading requirements.`
-                  : !progress.isMaxLevel && progress.monthsNeeded > 0
-                    ? `Continue training for ${progress.monthsNeeded} more months.`
-                    : progress.canGrade
-                      ? "You're ready to apply for your next grading!"
-                      : "Keep training consistently to build your skills."}
-              </Text>
-            </View>
-          </View>
-        </View>
+          <Ionicons
+            name="chevron-forward"
+            size={20}
+            color={colors.textSecondary}
+          />
+        </TouchableOpacity>
       </View>
     </ScrollView>
   );
 };
 
 const styles = {
-  gradingCard: {
+  statsGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 15,
+  },
+  statsCard: {
+    width: (width - 60) / 2,
+    backgroundColor: colors.cardBackground,
+    borderRadius: 15,
+    padding: 20,
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: colors.cardBorder,
+  },
+  statsIcon: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 12,
+  },
+  statsValue: {
+    fontSize: 20,
+    fontWeight: "bold",
+    color: colors.text,
+    marginBottom: 4,
+  },
+  statsUnit: {
+    fontSize: 14,
+    fontWeight: "normal",
+    color: colors.textSecondary,
+  },
+  statsLabel: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    textAlign: "center",
+  },
+  streakCard: {
+    backgroundColor: colors.cardBackground,
+    borderRadius: 15,
+    padding: 20,
+    marginHorizontal: 20,
+    marginTop: 20,
+    borderWidth: 1,
+    borderColor: colors.cardBorder,
+  },
+  streakHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 10,
+  },
+  streakInfo: {
+    marginLeft: 15,
+  },
+  streakNumber: {
+    fontSize: 24,
+    fontWeight: "bold",
+    color: colors.text,
+  },
+  streakLabel: {
+    fontSize: 14,
+    color: colors.textSecondary,
+  },
+  streakDesc: {
+    fontSize: 14,
+    color: colors.text,
+    fontStyle: "italic",
+  },
+  breakdownContainer: {
     backgroundColor: colors.cardBackground,
     borderRadius: 15,
     padding: 20,
     borderWidth: 1,
     borderColor: colors.cardBorder,
   },
-  gradingHeader: {
-    flexDirection: "row",
-    alignItems: "center",
+  breakdownTitle: {
+    fontSize: 16,
+    fontWeight: "bold",
+    color: colors.text,
+    marginBottom: 20,
+  },
+  breakdownItem: {
     marginBottom: 15,
   },
-  gradingIconContainer: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    backgroundColor: colors.accent,
+  breakdownHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 8,
+  },
+  breakdownIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     alignItems: "center",
     justifyContent: "center",
-    marginRight: 15,
-    position: "relative",
+    marginRight: 12,
   },
-  gradingRope: {
-    position: "absolute",
-    top: 10,
-    width: 30,
+  breakdownDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  breakdownType: {
+    flex: 1,
+    fontSize: 14,
+    fontWeight: "500",
+    color: colors.text,
+  },
+  breakdownSessions: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: colors.primary,
+  },
+  breakdownProgress: {
     height: 4,
+    backgroundColor: colors.backgroundLight,
+    borderRadius: 2,
+    marginLeft: 44,
+  },
+  breakdownProgressFill: {
+    height: "100%",
     borderRadius: 2,
   },
-  gradingInfo: {
-    flex: 1,
-  },
-  gradingTitle: {
-    fontSize: 18,
-    fontWeight: "bold",
-    color: colors.text,
-    marginBottom: 4,
-  },
-  currentGrade: {
-    fontSize: 14,
-    color: colors.textSecondary,
-  },
-  gradingProgressContainer: {
-    marginBottom: 15,
-  },
-  nextGradeText: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: colors.text,
-    marginBottom: 8,
-  },
-  gradingProgressBar: {
-    height: 8,
-    backgroundColor: colors.backgroundLight,
-    borderRadius: 4,
-    marginBottom: 6,
-  },
-  gradingProgressFill: {
-    height: "100%",
-    backgroundColor: colors.primary,
-    borderRadius: 4,
-  },
-  gradingProgressText: {
-    fontSize: 12,
-    color: colors.textSecondary,
-  },
-  gradingRequirements: {
-    marginBottom: 15,
-  },
-  requirementRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 6,
-    gap: 8,
-  },
-  requirementText: {
-    fontSize: 14,
-    color: colors.textSecondary,
-  },
-  readyToGradeIndicator: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: colors.warning + "20",
-    borderRadius: 8,
-    padding: 10,
-    gap: 8,
-  },
-  readyToGradeText: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: colors.warning,
-  },
-  maxLevelIndicator: {
-    alignItems: "center",
-    paddingVertical: 20,
-  },
-  maxLevelText: {
-    fontSize: 18,
-    fontWeight: "bold",
-    color: colors.primary,
-    marginTop: 10,
-    marginBottom: 5,
-  },
-  maxLevelSubtext: {
-    fontSize: 14,
-    color: colors.textSecondary,
-  },
-  recentApplicationContainer: {
-    borderTopWidth: 1,
-    borderTopColor: colors.cardBorder,
-    paddingTop: 15,
-    marginTop: 15,
-  },
-  recentApplicationTitle: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: colors.text,
-    marginBottom: 8,
-  },
-  recentApplication: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-  applicationGrade: {
-    fontSize: 14,
-    color: colors.text,
-  },
-  applicationStatusBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  applicationStatusText: {
-    fontSize: 12,
-    fontWeight: "600",
-  },
-  loadingContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    paddingVertical: 20,
-    gap: 10,
-  },
-  loadingText: {
-    fontSize: 14,
-    color: colors.textSecondary,
-  },
-  statsGrid: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    gap: 10,
-  },
-  statCard: {
-    flex: 1,
+  achievementCard: {
     backgroundColor: colors.cardBackground,
-    borderRadius: 12,
-    padding: 15,
-    alignItems: "center",
+    borderRadius: 15,
+    padding: 20,
+    marginBottom: 15,
     borderWidth: 1,
     borderColor: colors.cardBorder,
   },
-  statIcon: {
-    width: 40,
-    height: 40,
-    backgroundColor: colors.accent,
-    borderRadius: 20,
+  lockedAchievement: {
+    opacity: 0.6,
+  },
+  achievementHeader: {
+    flexDirection: "row",
     alignItems: "center",
-    justifyContent: "center",
     marginBottom: 10,
   },
-  statValue: {
+  achievementIcon: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 15,
+  },
+  achievementInfo: {
+    flex: 1,
+  },
+  achievementTitle: {
     fontSize: 16,
     fontWeight: "bold",
     color: colors.text,
     marginBottom: 4,
   },
-  statLabel: {
+  achievementDesc: {
+    fontSize: 14,
+    color: colors.textSecondary,
+  },
+  lockedText: {
+    opacity: 0.7,
+  },
+  achievementPoints: {
+    alignItems: "center",
+  },
+  pointsValue: {
+    fontSize: 16,
+    fontWeight: "bold",
+    color: colors.secondary,
+  },
+  pointsLabel: {
     fontSize: 12,
     color: colors.textSecondary,
-    textAlign: "center",
   },
-  milestonesContainer: {
-    gap: 10,
-  },
-  milestoneItem: {
+  earnedBadge: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: colors.cardBackground,
-    borderRadius: 12,
-    padding: 15,
-    borderWidth: 1,
-    borderColor: colors.cardBorder,
-  },
-  completedMilestone: {
-    borderColor: colors.success + "40",
-    backgroundColor: colors.success + "05",
-  },
-  milestoneText: {
-    flex: 1,
-    fontSize: 14,
-    fontWeight: "500",
-    color: colors.text,
-    marginLeft: 12,
-  },
-  milestoneProgress: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: colors.primary,
-  },
-  achievementDate: {
     backgroundColor: colors.success + "20",
-    paddingHorizontal: 8,
-    paddingVertical: 4,
     borderRadius: 12,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    alignSelf: "flex-start",
+    gap: 6,
   },
-  achievementDateText: {
+  earnedText: {
     fontSize: 12,
-    fontWeight: "600",
+    fontWeight: "500",
     color: colors.success,
   },
-  insightsCard: {
+  progressContainer: {
+    marginTop: 10,
+  },
+  progressBar: {
+    height: 6,
+    backgroundColor: colors.backgroundLight,
+    borderRadius: 3,
+    marginBottom: 6,
+  },
+  progressFill: {
+    height: "100%",
+    backgroundColor: colors.primary,
+    borderRadius: 3,
+  },
+  progressText: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    textAlign: "right",
+  },
+  analyticsButton: {
+    flexDirection: "row",
+    alignItems: "center",
     backgroundColor: colors.cardBackground,
     borderRadius: 15,
     padding: 20,
     borderWidth: 1,
     borderColor: colors.cardBorder,
-    gap: 20,
   },
-  insightItem: {
-    flexDirection: "row",
-    alignItems: "flex-start",
+  analyticsIcon: {
+    width: 50,
+    height: 50,
+    backgroundColor: colors.primary + "20",
+    borderRadius: 25,
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 15,
   },
-  insightContent: {
+  analyticsInfo: {
     flex: 1,
-    marginLeft: 12,
   },
-  insightTitle: {
-    fontSize: 14,
-    fontWeight: "600",
+  analyticsTitle: {
+    fontSize: 16,
+    fontWeight: "bold",
     color: colors.text,
     marginBottom: 4,
   },
-  insightDescription: {
+  analyticsDesc: {
     fontSize: 14,
     color: colors.textSecondary,
-    lineHeight: 20,
   },
 };
 

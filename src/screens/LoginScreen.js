@@ -8,11 +8,11 @@ import {
   SafeAreaView,
   StatusBar,
   Alert,
-  Image,
   ActivityIndicator,
 } from "react-native";
 import { colors } from "../constants/colors";
 import { loginStyles } from "../styles/loginStyles";
+import Logo from "../components/Logo";
 import authService from "../services/authService";
 
 const LoginScreen = ({ onLogin }) => {
@@ -20,8 +20,18 @@ const LoginScreen = ({ onLogin }) => {
   const [password, setPassword] = useState("");
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
+  const [gym, setGym] = useState("");
+  const [fighterLevel, setFighterLevel] = useState("Beginner");
   const [isSignUp, setIsSignUp] = useState(false);
   const [loading, setLoading] = useState(false);
+
+  const fighterLevels = [
+    "Beginner",
+    "Intermediate",
+    "Amateur",
+    "Semi-Pro",
+    "Professional",
+  ];
 
   const handleLogin = async () => {
     if (!email || !password) {
@@ -40,15 +50,19 @@ const LoginScreen = ({ onLogin }) => {
       let result;
 
       if (isSignUp) {
-        // Register new user - FIXED function name
+        // Register new user with fighter-specific fields
         result = await authService.register(
           email,
           password,
           firstName,
           lastName,
+          {
+            gym,
+            fighterLevel,
+          },
         );
       } else {
-        // Login existing user - FIXED function name
+        // Login existing user
         result = await authService.login(email, password);
       }
 
@@ -56,26 +70,29 @@ const LoginScreen = ({ onLogin }) => {
         Alert.alert(
           "Success!",
           isSignUp
-            ? "Welcome to 8 Limbs Muay Thai! Your account has been created."
-            : "Welcome back, warrior!",
+            ? "Welcome to FightTracker! Ready to start your training journey?"
+            : "Welcome back, fighter!",
           [
             {
-              text: "Continue",
+              text: "Let's Train!",
               onPress: () => {
-                // Transform Firebase user to match your existing app structure
+                // Transform Firebase user to match app structure
                 const userData = {
                   name:
                     result.user.name ||
                     result.user.displayName ||
                     `${firstName} ${lastName}` ||
-                    "Member",
+                    "Fighter",
                   email: result.user.email,
                   uid: result.user.uid,
                   memberSince: result.user.memberSince || "Just now",
-                  classesAttended: result.user.classesAttended || 0,
+                  totalSessions: result.user.totalSessions || 0,
                   currentStreak: result.user.currentStreak || 0,
-                  nextGoal: result.user.nextGoal || "Complete your first class",
-                  membership: result.user.membership || "Basic",
+                  fighterLevel:
+                    result.user.fighterLevel || fighterLevel || "Beginner",
+                  gym: result.user.gym || gym || "",
+                  followers: result.user.followers || 0,
+                  following: result.user.following || 0,
                   avatar:
                     result.user.avatar ||
                     email.charAt(0).toUpperCase() +
@@ -123,42 +140,82 @@ const LoginScreen = ({ onLogin }) => {
 
       <ScrollView contentContainerStyle={loginStyles.scrollContainer}>
         <View style={loginStyles.logoSection}>
-          {/* 8 Limbs Logo */}
-          <Image
-            source={require("../../assets/8-limbs-logo.png")}
-            style={loginStyles.logo}
-            resizeMode="contain"
-          />
+          {/* FightTracker Logo */}
+          <Logo size="xlarge" showBackground={false} />
 
-          <Text style={loginStyles.logoText}>8 LIMBS</Text>
-          <Text style={loginStyles.logoSubtext}>MUAY THAI</Text>
-          <Text style={loginStyles.tagline}>Unleash Your Warrior Spirit</Text>
+          <Text style={loginStyles.logoText}>STRYKR App</Text>
+          <Text style={loginStyles.logoSubtext}>TRAIN • TRACK • DOMINATE</Text>
+          <Text style={loginStyles.tagline}>
+            Your training journey starts here
+          </Text>
         </View>
 
         <View style={loginStyles.formSection}>
           <Text style={loginStyles.formTitle}>
-            {isSignUp ? "Join Our Community" : "Welcome Back, Warrior"}
+            {isSignUp ? "Join the Fight Community" : "Welcome Back, Fighter"}
           </Text>
 
           {isSignUp && (
             <>
-              <TextInput
-                style={loginStyles.input}
-                placeholder="First Name"
-                placeholderTextColor={colors.textSecondary}
-                value={firstName}
-                onChangeText={setFirstName}
-                autoCapitalize="words"
-              />
+              <View style={styles.nameRow}>
+                <TextInput
+                  style={[loginStyles.input, styles.nameInput]}
+                  placeholder="First Name"
+                  placeholderTextColor={colors.textSecondary}
+                  value={firstName}
+                  onChangeText={setFirstName}
+                  autoCapitalize="words"
+                />
+
+                <TextInput
+                  style={[loginStyles.input, styles.nameInput]}
+                  placeholder="Last Name"
+                  placeholderTextColor={colors.textSecondary}
+                  value={lastName}
+                  onChangeText={setLastName}
+                  autoCapitalize="words"
+                />
+              </View>
 
               <TextInput
                 style={loginStyles.input}
-                placeholder="Last Name"
+                placeholder="Gym Name (Optional)"
                 placeholderTextColor={colors.textSecondary}
-                value={lastName}
-                onChangeText={setLastName}
+                value={gym}
+                onChangeText={setGym}
                 autoCapitalize="words"
               />
+
+              <View style={styles.pickerContainer}>
+                <Text style={styles.pickerLabel}>Fighter Level</Text>
+                <View style={styles.pickerWrapper}>
+                  <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    style={styles.levelSelector}
+                  >
+                    {fighterLevels.map((level) => (
+                      <TouchableOpacity
+                        key={level}
+                        style={[
+                          styles.levelButton,
+                          fighterLevel === level && styles.selectedLevelButton,
+                        ]}
+                        onPress={() => setFighterLevel(level)}
+                      >
+                        <Text
+                          style={[
+                            styles.levelButtonText,
+                            fighterLevel === level && styles.selectedLevelText,
+                          ]}
+                        >
+                          {level}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
+                </View>
+              </View>
             </>
           )}
 
@@ -190,7 +247,7 @@ const LoginScreen = ({ onLogin }) => {
               <ActivityIndicator color={colors.text} />
             ) : (
               <Text style={loginStyles.primaryButtonText}>
-                {isSignUp ? "START YOUR JOURNEY" : "ENTER THE DOJO"}
+                {isSignUp ? "START TRAINING" : "ENTER THE GYM"}
               </Text>
             )}
           </TouchableOpacity>
@@ -212,16 +269,83 @@ const LoginScreen = ({ onLogin }) => {
               setIsSignUp(!isSignUp);
               setFirstName("");
               setLastName("");
+              setGym("");
+              setFighterLevel("Beginner");
             }}
           >
             <Text style={loginStyles.switchText}>
-              {isSignUp ? "Already a member? Sign In" : "New warrior? Join Us"}
+              {isSignUp
+                ? "Already a fighter? Sign In"
+                : "New to training? Join Us"}
             </Text>
           </TouchableOpacity>
+
+          {isSignUp && (
+            <Text style={styles.disclaimer}>
+              By signing up, you agree to track your training journey and
+              connect with fellow fighters.
+            </Text>
+          )}
         </View>
       </ScrollView>
     </SafeAreaView>
   );
+};
+
+const styles = {
+  nameRow: {
+    flexDirection: "row",
+    gap: 10,
+  },
+  nameInput: {
+    flex: 1,
+    marginBottom: 15,
+  },
+  pickerContainer: {
+    marginBottom: 15,
+  },
+  pickerLabel: {
+    fontSize: 14,
+    color: colors.text,
+    marginBottom: 8,
+    fontWeight: "500",
+  },
+  pickerWrapper: {
+    backgroundColor: colors.cardBackground,
+    borderWidth: 1,
+    borderColor: colors.cardBorder,
+    borderRadius: 12,
+    padding: 4,
+  },
+  levelSelector: {
+    flexDirection: "row",
+  },
+  levelButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 8,
+    marginHorizontal: 4,
+    backgroundColor: colors.backgroundLight,
+  },
+  selectedLevelButton: {
+    backgroundColor: colors.primary,
+  },
+  levelButtonText: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    fontWeight: "500",
+  },
+  selectedLevelText: {
+    color: colors.text,
+    fontWeight: "600",
+  },
+  disclaimer: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    textAlign: "center",
+    marginTop: 20,
+    lineHeight: 16,
+  },
 };
 
 export default LoginScreen;

@@ -1,26 +1,22 @@
-// src/navigation/MainNavigator.js - Updated with Grading Screen
-
 import React, { useState } from "react";
-import { View, Text, TouchableOpacity, Image } from "react-native";
+import { View, Text, TouchableOpacity } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { colors } from "../constants/colors";
 import { navigationStyles } from "../styles/navigationStyles";
 
-// Import all screens including the new GradingScreen
+// Import all screens
 import HomeScreen from "../screens/HomeScreen";
-import ClassesScreen from "../screens/ClassesScreen";
-import CheckInScreen from "../screens/CheckInScreen";
+import TrainingScreen from "../screens/TrainingScreen";
+import FeedScreen from "../screens/FeedScreen";
 import ProgressScreen from "../screens/ProgressScreen";
 import ProfileScreen from "../screens/ProfileScreen";
-import MyBookingsScreen from "../screens/MyBookingsScreen";
+import LogTrainingScreen from "../screens/LogTrainingScreen";
+import StatsScreen from "../screens/StatsScreen";
 import SettingsScreen from "../screens/SettingsScreen";
 import EditProfileScreen from "../screens/EditProfileScreen";
-import PaymentMethodsScreen from "../screens/PaymentMethodsScreen";
-import HelpSupportScreen from "../screens/HelpSupportScreen";
-import GoalManagementScreen from "../screens/GoalManagementScreen";
-import GradingScreen from "../screens/GradingScreen"; // Add this import
+import ChallengesScreen from "../screens/ChallengesScreen";
 
-// Modified Header Component with setup access
+// Header Component with FightTracker branding
 const Header = ({
   member,
   currentScreen,
@@ -30,8 +26,8 @@ const Header = ({
 }) => (
   <View style={navigationStyles.header}>
     {currentScreen !== "home" &&
-    currentScreen !== "classes" &&
-    currentScreen !== "checkin" &&
+    currentScreen !== "training" &&
+    currentScreen !== "feed" &&
     currentScreen !== "progress" &&
     currentScreen !== "profile" ? (
       <TouchableOpacity onPress={onBack} style={navigationStyles.backButton}>
@@ -40,26 +36,33 @@ const Header = ({
     ) : (
       <TouchableOpacity
         style={navigationStyles.headerBrand}
-        onLongPress={onSetupAccess} // Add long press to access setup
-        delayLongPress={3000} // 3 second long press
+        onLongPress={onSetupAccess}
+        delayLongPress={3000}
       >
-        <Image
-          source={require("../../assets/8-limbs-logo.png")}
-          style={navigationStyles.headerLogo}
-          resizeMode="contain"
-        />
+        <View
+          style={{
+            width: 32,
+            height: 32,
+            backgroundColor: colors.primary,
+            borderRadius: 16,
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          <Text style={{ fontSize: 16, fontWeight: "bold" }}>🥊</Text>
+        </View>
         <View>
-          <Text style={navigationStyles.headerTitle}>8 Limbs Muay Thai</Text>
+          <Text style={navigationStyles.headerTitle}>FightTracker</Text>
           <Text style={navigationStyles.headerSubtitle}>
-            Unleash Your Warrior Spirit
+            Train. Track. Dominate.
           </Text>
         </View>
       </TouchableOpacity>
     )}
 
     {(currentScreen === "home" ||
-      currentScreen === "classes" ||
-      currentScreen === "checkin" ||
+      currentScreen === "training" ||
+      currentScreen === "feed" ||
       currentScreen === "progress" ||
       currentScreen === "profile") && (
       <TouchableOpacity
@@ -79,8 +82,8 @@ const BottomNavigation = ({ activeTab, setActiveTab, currentScreen }) => {
   // Hide bottom nav on sub-screens
   if (
     currentScreen !== "home" &&
-    currentScreen !== "classes" &&
-    currentScreen !== "checkin" &&
+    currentScreen !== "training" &&
+    currentScreen !== "feed" &&
     currentScreen !== "progress" &&
     currentScreen !== "profile"
   ) {
@@ -89,9 +92,9 @@ const BottomNavigation = ({ activeTab, setActiveTab, currentScreen }) => {
 
   const tabs = [
     { id: "home", icon: "home", label: "Home" },
-    { id: "classes", icon: "calendar", label: "Classes" },
-    { id: "checkin", icon: "qr-code", label: "Check In" },
-    { id: "progress", icon: "trophy", label: "Progress" },
+    { id: "training", icon: "fitness", label: "Training" },
+    { id: "feed", icon: "people", label: "Feed" },
+    { id: "progress", icon: "analytics", label: "Progress" },
     { id: "profile", icon: "person", label: "Profile" },
   ];
 
@@ -128,15 +131,8 @@ const BottomNavigation = ({ activeTab, setActiveTab, currentScreen }) => {
   );
 };
 
-// Main Navigator - updated to include grading screen
-const MainNavigator = ({
-  member,
-  bookedClasses,
-  onBookClass,
-  onCancelBooking,
-  onLogout,
-  onSetupAccess,
-}) => {
+// Main Navigator
+const MainNavigator = ({ member, onLogout, onSetupAccess }) => {
   const [activeTab, setActiveTab] = useState("home");
   const [currentScreen, setCurrentScreen] = useState("home");
   const [memberData, setMemberData] = useState(member);
@@ -146,22 +142,12 @@ const MainNavigator = ({
   };
 
   const goBack = () => {
-    // Go back to the main tab screen
     setCurrentScreen(activeTab);
   };
 
   const handleTabChange = (tabId) => {
     setActiveTab(tabId);
     setCurrentScreen(tabId);
-  };
-
-  const handleGoalUpdate = (goalData) => {
-    setMemberData((prev) => ({
-      ...prev,
-      nextGoal: goalData.text,
-      goalTarget: goalData.target,
-      goalCurrent: goalData.current,
-    }));
   };
 
   const handleProfilePress = () => {
@@ -174,30 +160,16 @@ const MainNavigator = ({
   const renderScreen = () => {
     switch (currentScreen) {
       case "home":
+        return <HomeScreen member={memberData} onNavigate={navigateToScreen} />;
+      case "training":
         return (
-          <HomeScreen
-            member={memberData}
-            bookedClasses={bookedClasses}
-            onBookClass={onBookClass}
-            onNavigate={navigateToScreen}
-          />
+          <TrainingScreen member={memberData} onNavigate={navigateToScreen} />
         );
-      case "classes":
-        return (
-          <ClassesScreen
-            bookedClasses={bookedClasses}
-            onBookClass={onBookClass}
-            member={memberData} // ✅ Added member data for Firebase booking
-          />
-        );
-      case "checkin":
-        return <CheckInScreen />;
+      case "feed":
+        return <FeedScreen member={memberData} />;
       case "progress":
         return (
-          <ProgressScreen
-            member={memberData}
-            onNavigate={navigateToScreen} // Add navigation prop
-          />
+          <ProgressScreen member={memberData} onNavigate={navigateToScreen} />
         );
       case "profile":
         return (
@@ -207,42 +179,18 @@ const MainNavigator = ({
             onNavigate={navigateToScreen}
           />
         );
-      case "mybookings":
-        return (
-          <MyBookingsScreen
-            bookedClasses={bookedClasses}
-            onCancelBooking={onCancelBooking}
-            onBack={goBack}
-            member={memberData} // ✅ Added member data for Firebase bookings
-          />
-        );
+      case "logtraining":
+        return <LogTrainingScreen member={memberData} onBack={goBack} />;
+      case "stats":
+        return <StatsScreen member={memberData} onBack={goBack} />;
       case "settings":
         return <SettingsScreen onBack={goBack} />;
       case "editprofile":
         return <EditProfileScreen member={memberData} onBack={goBack} />;
-      case "paymentmethods":
-        return <PaymentMethodsScreen onBack={goBack} />;
-      case "helpsupport":
-        return <HelpSupportScreen onBack={goBack} />;
-      case "goalmanagement":
-        return (
-          <GoalManagementScreen
-            member={memberData}
-            onBack={goBack}
-            onSaveGoal={handleGoalUpdate}
-          />
-        );
-      case "grading": // Add the new grading screen case
-        return <GradingScreen member={memberData} onBack={goBack} />;
+      case "challenges":
+        return <ChallengesScreen member={memberData} onBack={goBack} />;
       default:
-        return (
-          <HomeScreen
-            member={memberData}
-            bookedClasses={bookedClasses}
-            onBookClass={onBookClass}
-            onNavigate={navigateToScreen}
-          />
-        );
+        return <HomeScreen member={memberData} onNavigate={navigateToScreen} />;
     }
   };
 
@@ -253,7 +201,7 @@ const MainNavigator = ({
         currentScreen={currentScreen}
         onBack={goBack}
         onProfilePress={handleProfilePress}
-        onSetupAccess={onSetupAccess} // Pass the setup access function
+        onSetupAccess={onSetupAccess}
       />
       {renderScreen()}
       <BottomNavigation
