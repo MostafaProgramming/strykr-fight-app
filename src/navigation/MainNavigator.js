@@ -1,3 +1,4 @@
+// src/navigation/MainNavigator.js - UPDATED WITH SOCIAL FEATURES
 import React, { useState } from "react";
 import { View, Text, TouchableOpacity } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
@@ -15,6 +16,7 @@ import StatsScreen from "../screens/StatsScreen";
 import SettingsScreen from "../screens/SettingsScreen";
 import EditProfileScreen from "../screens/EditProfileScreen";
 import ChallengesScreen from "../screens/ChallengesScreen";
+import DiscoverUsersScreen from "../screens/DiscoverUsersScreen"; // NEW
 
 // Header Component with FightTracker branding
 const Header = ({
@@ -23,6 +25,7 @@ const Header = ({
   onBack,
   onProfilePress,
   onSetupAccess,
+  onDiscoverPress, // NEW
 }) => (
   <View style={navigationStyles.header}>
     {currentScreen !== "home" &&
@@ -60,20 +63,36 @@ const Header = ({
       </TouchableOpacity>
     )}
 
-    {(currentScreen === "home" ||
-      currentScreen === "training" ||
-      currentScreen === "feed" ||
-      currentScreen === "progress" ||
-      currentScreen === "profile") && (
-      <TouchableOpacity
-        style={navigationStyles.profileButton}
-        onPress={onProfilePress}
-      >
-        <View style={navigationStyles.avatarSmall}>
-          <Text style={navigationStyles.avatarTextSmall}>{member.avatar}</Text>
-        </View>
-      </TouchableOpacity>
-    )}
+    {/* Header Actions */}
+    <View style={navigationStyles.headerActions}>
+      {/* Discover Users Button - NEW */}
+      {(currentScreen === "feed" || currentScreen === "profile") && (
+        <TouchableOpacity
+          style={navigationStyles.headerActionButton}
+          onPress={onDiscoverPress}
+        >
+          <Ionicons name="person-add" size={24} color={colors.text} />
+        </TouchableOpacity>
+      )}
+
+      {/* Profile Button */}
+      {(currentScreen === "home" ||
+        currentScreen === "training" ||
+        currentScreen === "feed" ||
+        currentScreen === "progress" ||
+        currentScreen === "profile") && (
+        <TouchableOpacity
+          style={navigationStyles.profileButton}
+          onPress={onProfilePress}
+        >
+          <View style={navigationStyles.avatarSmall}>
+            <Text style={navigationStyles.avatarTextSmall}>
+              {member.avatar}
+            </Text>
+          </View>
+        </TouchableOpacity>
+      )}
+    </View>
   </View>
 );
 
@@ -157,6 +176,11 @@ const MainNavigator = ({ member, onLogout, onSetupAccess }) => {
     }
   };
 
+  // NEW: Handle discover users press
+  const handleDiscoverPress = () => {
+    setCurrentScreen("discover");
+  };
+
   const renderScreen = () => {
     switch (currentScreen) {
       case "home":
@@ -166,7 +190,7 @@ const MainNavigator = ({ member, onLogout, onSetupAccess }) => {
           <TrainingScreen member={memberData} onNavigate={navigateToScreen} />
         );
       case "feed":
-        return <FeedScreen member={memberData} />;
+        return <FeedScreen member={memberData} onNavigate={navigateToScreen} />;
       case "progress":
         return (
           <ProgressScreen member={memberData} onNavigate={navigateToScreen} />
@@ -189,6 +213,11 @@ const MainNavigator = ({ member, onLogout, onSetupAccess }) => {
         return <EditProfileScreen member={memberData} onBack={goBack} />;
       case "challenges":
         return <ChallengesScreen member={memberData} onBack={goBack} />;
+
+      // NEW: Discover Users Screen
+      case "discover":
+        return <DiscoverUsersScreen member={memberData} onBack={goBack} />;
+
       default:
         return <HomeScreen member={memberData} onNavigate={navigateToScreen} />;
     }
@@ -202,6 +231,7 @@ const MainNavigator = ({ member, onLogout, onSetupAccess }) => {
         onBack={goBack}
         onProfilePress={handleProfilePress}
         onSetupAccess={onSetupAccess}
+        onDiscoverPress={handleDiscoverPress} // NEW
       />
       {renderScreen()}
       <BottomNavigation

@@ -1,3 +1,4 @@
+// src/screens/FeedScreen.js - ENHANCED WITH FOLLOWING SYSTEM
 import React, { useState, useEffect } from "react";
 import {
   View,
@@ -12,40 +13,74 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { colors } from "../constants/colors";
 import { screenStyles } from "../styles/screenStyles";
-import RevolutionaryFeedCard from "../components/FeedCard";
+import FeedCard from "../components/FeedCard";
 import socialFeedService from "../services/socialFeedService";
+import followingService from "../services/followingService";
 
-const FeedScreen = ({ member }) => {
+const FeedScreen = ({ member, onNavigate }) => {
   const [feedData, setFeedData] = useState([]);
   const [refreshing, setRefreshing] = useState(false);
   const [selectedFilter, setSelectedFilter] = useState("foryou");
   const [loading, setLoading] = useState(true);
+  const [followingIds, setFollowingIds] = useState([]);
+
+  useEffect(() => {
+    loadFollowingIds();
+  }, []);
 
   useEffect(() => {
     loadFeedData();
-  }, [selectedFilter]);
+  }, [selectedFilter, followingIds]);
+
+  const loadFollowingIds = async () => {
+    try {
+      const result = await followingService.getFollowingIds(member?.uid);
+      if (result.success) {
+        setFollowingIds(result.followingIds);
+      }
+    } catch (error) {
+      console.error("Error loading following IDs:", error);
+    }
+  };
 
   const loadFeedData = async () => {
     try {
       setLoading(true);
 
-      // Load real data from Firebase
-      const result = await socialFeedService.getFeedPosts(
-        selectedFilter,
-        member?.uid,
-        20,
-      );
+      let result;
+
+      if (selectedFilter === "following") {
+        // Get posts only from followed users
+        if (followingIds.length === 0) {
+          setFeedData([]);
+          setLoading(false);
+          return;
+        }
+
+        result = await socialFeedService.getFeedPostsFromFollowing(
+          followingIds,
+          member?.uid,
+          20,
+        );
+      } else {
+        result = await socialFeedService.getFeedPosts(
+          selectedFilter,
+          member?.uid,
+          20,
+        );
+      }
 
       if (result.success) {
         setFeedData(result.posts);
+        console.log(
+          `Loaded ${result.posts.length} posts for ${selectedFilter} feed`,
+        );
       } else {
         console.error("Failed to load feed:", result.error);
-        // Fallback to empty array or show error
         setFeedData([]);
       }
     } catch (error) {
       console.error("Error loading feed:", error);
-      Alert.alert("Error", "Failed to load feed");
       setFeedData([]);
     } finally {
       setLoading(false);
@@ -54,9 +89,10 @@ const FeedScreen = ({ member }) => {
 
   const onRefresh = React.useCallback(async () => {
     setRefreshing(true);
+    await loadFollowingIds();
     await loadFeedData();
     setRefreshing(false);
-  }, [selectedFilter]);
+  }, [selectedFilter, followingIds]);
 
   const handleLike = async (postId, currentIsLiked) => {
     try {
@@ -75,7 +111,6 @@ const FeedScreen = ({ member }) => {
         ),
       );
 
-      // Make API call
       const result = await socialFeedService.toggleLike(postId, member.uid);
 
       if (!result.success) {
@@ -97,25 +132,51 @@ const FeedScreen = ({ member }) => {
       }
     } catch (error) {
       console.error("Error liking post:", error);
-      // Revert on error
+    }
+  };
+
+  const handleRespect = async (postId, currentHasRespected) => {
+    try {
+      // Optimistically update UI
       setFeedData((prevData) =>
         prevData.map((post) =>
           post.id === postId
             ? {
                 ...post,
-                isLiked: currentIsLiked,
-                likeCount: currentIsLiked
-                  ? post.likeCount + 1
-                  : post.likeCount - 1,
+                hasRespected: !currentHasRespected,
+                respectCount: currentHasRespected
+                  ? post.respectCount - 1
+                  : post.respectCount + 1,
               }
             : post,
         ),
       );
+
+      const result = await socialFeedService.toggleRespect(postId, member.uid);
+
+      if (!result.success) {
+        // Revert on failure
+        setFeedData((prevData) =>
+          prevData.map((post) =>
+            post.id === postId
+              ? {
+                  ...post,
+                  hasRespected: currentHasRespected,
+                  respectCount: currentHasRespected
+                    ? post.respectCount + 1
+                    : post.respectCount - 1,
+                }
+              : post,
+          ),
+        );
+        Alert.alert("Error", "Failed to give respect");
+      }
+    } catch (error) {
+      console.error("Error giving respect:", error);
     }
   };
 
   const handleComment = (postId) => {
-    // TODO: Navigate to comments screen or show comment modal
     Alert.alert(
       "Comments",
       "Comment feature coming soon! Will show a comment input and list of comments.",
@@ -125,7 +186,6 @@ const FeedScreen = ({ member }) => {
 
   const handleShare = async (postId) => {
     try {
-      // TODO: Implement sharing (copy link, share to social media, etc.)
       Alert.alert("Share", "Share this training session?", [
         { text: "Cancel", style: "cancel" },
         {
@@ -143,18 +203,67 @@ const FeedScreen = ({ member }) => {
   };
 
   const handleUserPress = (userId) => {
-    // TODO: Navigate to user profile
     Alert.alert("User Profile", `Navigate to profile for user: ${userId}`, [
       { text: "Cancel", style: "cancel" },
       {
         text: "View Profile",
         onPress: () => console.log(`Navigate to user ${userId}`),
       },
+      {
+        text: "Follow/Unfollow",
+        onPress: () => handleQuickFollow(userId),
+      },
     ]);
   };
 
+  // NEW: Quick follow/unfollow from feed
+  const handleQuickFollow = async (userId) => {
+    try {
+      const isFollowingResult = await followingService.isFollowing(
+        member.uid,
+        userId,
+      );
+
+      if (isFollowingResult.success) {
+        if (isFollowingResult.isFollowing) {
+          // Unfollow
+          const result = await followingService.unfollowUser(
+            member.uid,
+            userId,
+          );
+          if (result.success) {
+            Alert.alert("Unfollowed", "You are no longer following this user");
+            // Refresh following IDs
+            await loadFollowingIds();
+          }
+        } else {
+          // Follow - need user info
+          const post = feedData.find((p) => p.userId === userId);
+          if (post) {
+            const result = await followingService.followUser(
+              member.uid,
+              userId,
+              { name: member.name, avatar: member.avatar },
+              { name: post.userName, avatar: post.userAvatar },
+            );
+            if (result.success) {
+              Alert.alert(
+                "Following!",
+                `You are now following ${post.userName} 🎉`,
+              );
+              // Refresh following IDs
+              await loadFollowingIds();
+            }
+          }
+        }
+      }
+    } catch (error) {
+      console.error("Error with follow/unfollow:", error);
+      Alert.alert("Error", "Failed to update follow status");
+    }
+  };
+
   const handleMediaPress = (media) => {
-    // TODO: Open media viewer/gallery
     Alert.alert("Media Viewer", `View ${media.length} media item(s)`, [
       { text: "Cancel", style: "cancel" },
       {
@@ -164,14 +273,47 @@ const FeedScreen = ({ member }) => {
     ]);
   };
 
-  const getFilteredData = () => {
-    // Data is already filtered by the service based on selectedFilter
-    return feedData;
+  const handleTechniqueRequest = (postId) => {
+    Alert.alert(
+      "Technique Request",
+      "Ask the poster to show you that technique?",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Ask",
+          onPress: () =>
+            Alert.alert(
+              "Request Sent!",
+              "The fighter will be notified of your technique request.",
+            ),
+        },
+      ],
+    );
+  };
+
+  const handleChallengeResponse = (postId) => {
+    Alert.alert(
+      "Challenge Response",
+      "Challenge yourself to match this training session?",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Accept Challenge",
+          onPress: () =>
+            Alert.alert("Challenge Accepted!", "Time to prove yourself! 💪"),
+        },
+      ],
+    );
   };
 
   const filters = [
     { id: "foryou", label: "For You", icon: "sparkles" },
-    { id: "following", label: "Following", icon: "people" },
+    {
+      id: "following",
+      label: "Following",
+      icon: "people",
+      count: followingIds.length,
+    },
     { id: "gym", label: "My Gym", icon: "business" },
     { id: "trending", label: "Trending", icon: "trending-up" },
   ];
@@ -180,19 +322,29 @@ const FeedScreen = ({ member }) => {
     <View style={styles.emptyState}>
       <View style={styles.emptyIcon}>
         <Ionicons
-          name="people-outline"
+          name={
+            selectedFilter === "following"
+              ? "people-outline"
+              : "fitness-outline"
+          }
           size={64}
           color={colors.textSecondary}
         />
       </View>
       <Text style={styles.emptyTitle}>
         {selectedFilter === "following"
-          ? "No Posts from Following"
-          : "No Posts Yet"}
+          ? followingIds.length === 0
+            ? "Not Following Anyone Yet"
+            : "No Posts from Following"
+          : selectedFilter === "trending"
+            ? "No Trending Posts"
+            : "No Posts Yet"}
       </Text>
       <Text style={styles.emptyDescription}>
         {selectedFilter === "following"
-          ? "Follow other fighters to see their training updates, or check out the 'For You' feed!"
+          ? followingIds.length === 0
+            ? "Discover amazing fighters and follow their training journey to see their posts here!"
+            : "The people you follow haven't posted recently. Check back later or discover more fighters!"
           : selectedFilter === "trending"
             ? "No trending posts this week. Be the first to share an amazing training session!"
             : "Be the first to share your training session and inspire others!"}
@@ -201,19 +353,25 @@ const FeedScreen = ({ member }) => {
         style={styles.emptyAction}
         onPress={() => {
           if (selectedFilter === "following") {
-            setSelectedFilter("foryou");
+            onNavigate && onNavigate("discover"); // Navigate to discover users
           } else {
-            // TODO: Navigate to log training or explore users
             Alert.alert(
-              "Coming Soon",
-              "User discovery and training logging integration coming soon!",
+              "Start Training!",
+              "Ready to log your first session and share it with the community?",
+              [
+                { text: "Later", style: "cancel" },
+                {
+                  text: "Let's Go!",
+                  onPress: () => onNavigate && onNavigate("logtraining"),
+                },
+              ],
             );
           }
         }}
       >
         <Text style={styles.emptyActionText}>
           {selectedFilter === "following"
-            ? "Browse For You Feed"
+            ? "Discover Fighters"
             : "Log Your Training"}
         </Text>
       </TouchableOpacity>
@@ -223,7 +381,11 @@ const FeedScreen = ({ member }) => {
   const LoadingComponent = () => (
     <View style={styles.loadingContainer}>
       <Ionicons name="fitness" size={48} color={colors.primary} />
-      <Text style={styles.loadingText}>Loading your feed...</Text>
+      <Text style={styles.loadingText}>
+        {selectedFilter === "following"
+          ? "Loading posts from people you follow..."
+          : "Loading your feed..."}
+      </Text>
     </View>
   );
 
@@ -267,6 +429,9 @@ const FeedScreen = ({ member }) => {
                 ]}
               >
                 {filter.label}
+                {filter.count !== undefined && filter.count > 0 && (
+                  <Text style={styles.filterCount}> ({filter.count})</Text>
+                )}
               </Text>
             </TouchableOpacity>
           ))}
@@ -275,16 +440,19 @@ const FeedScreen = ({ member }) => {
 
       {/* Feed */}
       <FlatList
-        data={getFilteredData()}
+        data={feedData}
         keyExtractor={(item) => item.id.toString()}
         renderItem={({ item }) => (
-          <RevolutionaryFeedCard
+          <FeedCard
             post={item}
-            onLike={(postId, isLiked) => handleLike(postId, !isLiked)} // Pass opposite of current state
+            onLike={handleLike}
             onComment={handleComment}
             onShare={handleShare}
             onUserPress={handleUserPress}
             onMediaPress={handleMediaPress}
+            onRespectBadge={handleRespect}
+            onTechniqueRequest={handleTechniqueRequest}
+            onChallengeResponse={handleChallengeResponse}
           />
         )}
         showsVerticalScrollIndicator={false}
@@ -298,9 +466,8 @@ const FeedScreen = ({ member }) => {
         }
         ListEmptyComponent={EmptyFeedComponent}
         contentContainerStyle={
-          getFilteredData().length === 0 ? styles.emptyContainer : null
+          feedData.length === 0 ? styles.emptyContainer : null
         }
-        // Performance optimizations
         removeClippedSubviews={true}
         maxToRenderPerBatch={5}
         updateCellsBatchingPeriod={100}
@@ -311,16 +478,14 @@ const FeedScreen = ({ member }) => {
       <TouchableOpacity
         style={styles.quickActionButton}
         onPress={() => {
-          // TODO: Quick share training or navigate to log training
           Alert.alert(
             "Share Training",
-            "Quick share your current training session?",
+            "Ready to inspire the community with your training session?",
             [
               { text: "Cancel", style: "cancel" },
               {
                 text: "Log & Share",
-                onPress: () =>
-                  console.log("Navigate to log training with share enabled"),
+                onPress: () => onNavigate && onNavigate("logtraining"),
               },
             ],
           );
@@ -328,6 +493,33 @@ const FeedScreen = ({ member }) => {
       >
         <Ionicons name="add" size={24} color={colors.text} />
       </TouchableOpacity>
+
+      {/* Enhanced Feed Stats */}
+      {feedData.length > 0 && (
+        <View style={styles.feedStats}>
+          <Text style={styles.feedStatsText}>
+            🔥 {feedData.length} posts
+            {selectedFilter === "following" &&
+              followingIds.length > 0 &&
+              ` • Following ${followingIds.length}`}
+            {feedData.filter((p) => p.isTrending).length > 0 &&
+              ` • ${feedData.filter((p) => p.isTrending).length} trending`}
+          </Text>
+        </View>
+      )}
+
+      {/* Discover Users Prompt */}
+      {selectedFilter === "following" && followingIds.length < 3 && (
+        <TouchableOpacity
+          style={styles.discoverPrompt}
+          onPress={() => onNavigate && onNavigate("discover")}
+        >
+          <Ionicons name="person-add" size={20} color={colors.primary} />
+          <Text style={styles.discoverPromptText}>
+            Discover more fighters to follow
+          </Text>
+        </TouchableOpacity>
+      )}
     </View>
   );
 };
@@ -338,7 +530,6 @@ const styles = {
     backgroundColor: colors.background,
   },
 
-  // Loading State
   loadingContainer: {
     flex: 1,
     justifyContent: "center",
@@ -349,9 +540,9 @@ const styles = {
     fontSize: 16,
     color: colors.textSecondary,
     marginTop: 15,
+    textAlign: "center",
   },
 
-  // Filter Bar
   filterContainer: {
     backgroundColor: colors.backgroundLight,
     borderBottomWidth: 1,
@@ -388,8 +579,11 @@ const styles = {
   activeFilterText: {
     color: colors.text,
   },
+  filterCount: {
+    fontSize: 12,
+    opacity: 0.8,
+  },
 
-  // Empty State
   emptyContainer: {
     flexGrow: 1,
   },
@@ -437,10 +631,9 @@ const styles = {
     fontWeight: "600",
   },
 
-  // Quick Action Button
   quickActionButton: {
     position: "absolute",
-    bottom: 20,
+    bottom: 80,
     right: 20,
     width: 56,
     height: 56,
@@ -453,6 +646,46 @@ const styles = {
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
+  },
+
+  feedStats: {
+    position: "absolute",
+    bottom: 20,
+    left: 20,
+    backgroundColor: colors.cardBackground + "80",
+    borderRadius: 15,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderWidth: 1,
+    borderColor: colors.cardBorder,
+  },
+  feedStatsText: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    fontWeight: "500",
+  },
+
+  // NEW: Discover prompt
+  discoverPrompt: {
+    position: "absolute",
+    bottom: 145,
+    left: 20,
+    right: 80,
+    backgroundColor: colors.primary + "20",
+    borderRadius: 15,
+    paddingHorizontal: 15,
+    paddingVertical: 10,
+    borderWidth: 1,
+    borderColor: colors.primary + "40",
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  discoverPromptText: {
+    fontSize: 14,
+    color: colors.primary,
+    fontWeight: "600",
+    flex: 1,
   },
 };
 

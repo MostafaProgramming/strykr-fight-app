@@ -1,5 +1,15 @@
+// src/components/FeedCard.js - REVOLUTIONARY UPGRADE
 import React, { useState } from "react";
-import { View, Text, TouchableOpacity, Image, Dimensions } from "react-native";
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  Image,
+  Dimensions,
+  Animated,
+  PanGestureHandler,
+  State,
+} from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { colors } from "../constants/colors";
 
@@ -12,9 +22,20 @@ const FeedCard = ({
   onShare,
   onUserPress,
   onMediaPress,
+  onRespectBadge, // NEW
+  onTechniqueRequest, // NEW
+  onChallengeResponse, // NEW
 }) => {
   const [isLiked, setIsLiked] = useState(post.isLiked || false);
   const [likeCount, setLikeCount] = useState(post.likeCount || 0);
+  const [respectCount, setRespectCount] = useState(post.respectCount || 0);
+  const [hasRespected, setHasRespected] = useState(post.hasRespected || false);
+  const [showQuickActions, setShowQuickActions] = useState(false);
+
+  // Animation values
+  const fireScale = useState(new Animated.Value(1))[0];
+  const respectScale = useState(new Animated.Value(1))[0];
+  const cardShake = useState(new Animated.Value(0))[0];
 
   const getTrainingTypeColor = (type) => {
     switch (type.toLowerCase()) {
@@ -57,22 +78,98 @@ const FeedCard = ({
     }
   };
 
-  const handleLike = () => {
+  // NEW: Fire reaction with animation
+  const handleFireReaction = () => {
     const newIsLiked = !isLiked;
     const newLikeCount = newIsLiked ? likeCount + 1 : likeCount - 1;
 
     setIsLiked(newIsLiked);
     setLikeCount(newLikeCount);
 
+    // Fire animation
+    Animated.sequence([
+      Animated.timing(fireScale, {
+        toValue: 1.5,
+        duration: 150,
+        useNativeDriver: true,
+      }),
+      Animated.timing(fireScale, {
+        toValue: 1,
+        duration: 150,
+        useNativeDriver: true,
+      }),
+    ]).start();
+
+    // Shake card on fire reaction
+    if (newIsLiked) {
+      Animated.sequence([
+        Animated.timing(cardShake, {
+          toValue: 10,
+          duration: 50,
+          useNativeDriver: true,
+        }),
+        Animated.timing(cardShake, {
+          toValue: -10,
+          duration: 50,
+          useNativeDriver: true,
+        }),
+        Animated.timing(cardShake, {
+          toValue: 10,
+          duration: 50,
+          useNativeDriver: true,
+        }),
+        Animated.timing(cardShake, {
+          toValue: 0,
+          duration: 50,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    }
+
     if (onLike) {
       onLike(post.id, newIsLiked);
     }
   };
 
+  // NEW: Respect badge reaction
+  const handleRespectBadge = () => {
+    const newHasRespected = !hasRespected;
+    const newRespectCount = newHasRespected
+      ? respectCount + 1
+      : respectCount - 1;
+
+    setHasRespected(newHasRespected);
+    setRespectCount(newRespectCount);
+
+    // Respect animation
+    Animated.sequence([
+      Animated.timing(respectScale, {
+        toValue: 1.3,
+        duration: 200,
+        useNativeDriver: true,
+      }),
+      Animated.timing(respectScale, {
+        toValue: 1,
+        duration: 200,
+        useNativeDriver: true,
+      }),
+    ]).start();
+
+    if (onRespectBadge) {
+      onRespectBadge(post.id, newHasRespected);
+    }
+  };
+
+  // NEW: Double tap for fire reaction
+  const handleDoubleTap = () => {
+    if (!isLiked) {
+      handleFireReaction();
+    }
+  };
+
   const formatTimeAgo = (timestamp) => {
-    // Simple time ago formatting
     if (typeof timestamp === "string") {
-      return timestamp; // Use provided string for mock data
+      return timestamp;
     }
 
     const now = new Date();
@@ -120,13 +217,64 @@ const FeedCard = ({
         return "🎯";
       case "pumped":
         return "⚡";
+      case "determined":
+        return "😤";
       default:
         return null;
     }
   };
 
+  // NEW: Quick action buttons
+  const QuickActions = () => (
+    <View style={styles.quickActionsContainer}>
+      <TouchableOpacity
+        style={styles.quickActionButton}
+        onPress={() => onTechniqueRequest && onTechniqueRequest(post.id)}
+      >
+        <Ionicons name="help-circle" size={20} color={colors.warning} />
+        <Text style={styles.quickActionText}>Show me that!</Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        style={styles.quickActionButton}
+        onPress={() => onChallengeResponse && onChallengeResponse(post.id)}
+      >
+        <Ionicons name="flash" size={20} color={colors.primary} />
+        <Text style={styles.quickActionText}>I'll match this!</Text>
+      </TouchableOpacity>
+    </View>
+  );
+
+  // NEW: Achievement badge for special sessions
+  const AchievementBadge = () => {
+    if (post.sessionIntensity >= 9) {
+      return (
+        <View style={styles.achievementBadge}>
+          <Ionicons name="trophy" size={14} color={colors.secondary} />
+          <Text style={styles.achievementText}>Beast Mode</Text>
+        </View>
+      );
+    }
+    if (post.sessionDuration >= 90) {
+      return (
+        <View style={styles.achievementBadge}>
+          <Ionicons name="time" size={14} color={colors.secondary} />
+          <Text style={styles.achievementText}>Endurance</Text>
+        </View>
+      );
+    }
+    return null;
+  };
+
   return (
-    <View style={styles.card}>
+    <Animated.View
+      style={[
+        styles.card,
+        {
+          transform: [{ translateX: cardShake }],
+        },
+      ]}
+    >
       {/* User Header */}
       <View style={styles.userHeader}>
         <TouchableOpacity
@@ -144,6 +292,7 @@ const FeedCard = ({
                   {getMoodEmoji(post.sessionMood)}
                 </Text>
               )}
+              <AchievementBadge />
             </View>
             <View style={styles.userMeta}>
               <Text style={styles.userGym}>{post.userGym}</Text>
@@ -165,8 +314,23 @@ const FeedCard = ({
             </View>
           </View>
         </TouchableOpacity>
-        <Text style={styles.timestamp}>{formatTimeAgo(post.timestamp)}</Text>
+        <View style={styles.headerRight}>
+          <Text style={styles.timestamp}>{formatTimeAgo(post.timestamp)}</Text>
+          <TouchableOpacity
+            style={styles.moreButton}
+            onPress={() => setShowQuickActions(!showQuickActions)}
+          >
+            <Ionicons
+              name="ellipsis-horizontal"
+              size={20}
+              color={colors.textSecondary}
+            />
+          </TouchableOpacity>
+        </View>
       </View>
+
+      {/* Quick Actions (NEW) */}
+      {showQuickActions && <QuickActions />}
 
       {/* Training Session Header */}
       <View style={styles.sessionHeader}>
@@ -188,6 +352,13 @@ const FeedCard = ({
           </Text>
           <Text style={styles.sessionSubtitle}>Training Session</Text>
         </View>
+        {/* NEW: Live indicator */}
+        {post.isLive && (
+          <View style={styles.liveIndicator}>
+            <View style={styles.liveDot} />
+            <Text style={styles.liveText}>LIVE</Text>
+          </View>
+        )}
       </View>
 
       {/* Intensity Bar */}
@@ -198,6 +369,7 @@ const FeedCard = ({
         <TouchableOpacity
           style={styles.mediaContainer}
           onPress={() => onMediaPress && onMediaPress(post.media)}
+          onDoublePress={handleDoubleTap}
         >
           <Image
             source={{ uri: post.media[0].downloadURL }}
@@ -213,7 +385,7 @@ const FeedCard = ({
           )}
           <View style={styles.mediaOverlay}>
             <Ionicons
-              name="play-circle"
+              name={post.media[0].type === "video" ? "play-circle" : "image"}
               size={48}
               color="rgba(255,255,255,0.8)"
             />
@@ -237,6 +409,15 @@ const FeedCard = ({
           <Ionicons name="flame" size={16} color={colors.textSecondary} />
           <Text style={styles.statText}>{post.sessionCalories || 0} cal</Text>
         </View>
+        {/* NEW: Streak indicator */}
+        {post.userStreak && post.userStreak > 1 && (
+          <View style={styles.statItem}>
+            <Ionicons name="trending-up" size={16} color={colors.secondary} />
+            <Text style={[styles.statText, { color: colors.secondary }]}>
+              {post.userStreak} day streak
+            </Text>
+          </View>
+        )}
       </View>
 
       {/* Session Notes */}
@@ -244,14 +425,20 @@ const FeedCard = ({
         <Text style={styles.sessionNotes}>{post.sessionNotes}</Text>
       )}
 
-      {/* Action Bar */}
+      {/* REVOLUTIONARY Action Bar */}
       <View style={styles.actionBar}>
-        <TouchableOpacity style={styles.actionButton} onPress={handleLike}>
-          <Ionicons
-            name={isLiked ? "flame" : "flame-outline"}
-            size={24}
-            color={isLiked ? colors.primary : colors.textSecondary}
-          />
+        {/* Fire Reaction */}
+        <TouchableOpacity
+          style={styles.actionButton}
+          onPress={handleFireReaction}
+        >
+          <Animated.View style={{ transform: [{ scale: fireScale }] }}>
+            <Ionicons
+              name={isLiked ? "flame" : "flame-outline"}
+              size={24}
+              color={isLiked ? colors.primary : colors.textSecondary}
+            />
+          </Animated.View>
           <Text
             style={[styles.actionText, isLiked && { color: colors.primary }]}
           >
@@ -259,6 +446,29 @@ const FeedCard = ({
           </Text>
         </TouchableOpacity>
 
+        {/* Respect Badge */}
+        <TouchableOpacity
+          style={styles.actionButton}
+          onPress={handleRespectBadge}
+        >
+          <Animated.View style={{ transform: [{ scale: respectScale }] }}>
+            <Ionicons
+              name={hasRespected ? "fitness" : "fitness-outline"}
+              size={22}
+              color={hasRespected ? colors.success : colors.textSecondary}
+            />
+          </Animated.View>
+          <Text
+            style={[
+              styles.actionText,
+              hasRespected && { color: colors.success },
+            ]}
+          >
+            {respectCount}
+          </Text>
+        </TouchableOpacity>
+
+        {/* Comment */}
         <TouchableOpacity
           style={styles.actionButton}
           onPress={() => onComment && onComment(post.id)}
@@ -271,6 +481,7 @@ const FeedCard = ({
           <Text style={styles.actionText}>{post.commentCount || 0}</Text>
         </TouchableOpacity>
 
+        {/* Share */}
         <TouchableOpacity
           style={styles.actionButton}
           onPress={() => onShare && onShare(post.id)}
@@ -282,32 +493,55 @@ const FeedCard = ({
           />
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.actionButton}>
+        {/* NEW: Technique Request */}
+        <TouchableOpacity
+          style={styles.actionButton}
+          onPress={() => onTechniqueRequest && onTechniqueRequest(post.id)}
+        >
           <Ionicons
-            name="bookmark-outline"
+            name="help-circle-outline"
             size={22}
-            color={colors.textSecondary}
+            color={colors.warning}
           />
         </TouchableOpacity>
       </View>
 
-      {/* Engagement Indicators */}
-      {(likeCount > 0 || post.commentCount > 0) && (
+      {/* Enhanced Engagement Indicators */}
+      {(likeCount > 0 || post.commentCount > 0 || respectCount > 0) && (
         <View style={styles.engagementBar}>
           {likeCount > 0 && (
-            <Text style={styles.engagementText}>
-              🔥 {likeCount} {likeCount === 1 ? "fire" : "fires"}
-            </Text>
+            <View style={styles.engagementItem}>
+              <Text style={styles.engagementText}>
+                🔥 {likeCount} {likeCount === 1 ? "fire" : "fires"}
+              </Text>
+            </View>
+          )}
+          {respectCount > 0 && (
+            <View style={styles.engagementItem}>
+              <Text style={styles.engagementText}>
+                💪 {respectCount} respect
+              </Text>
+            </View>
           )}
           {post.commentCount > 0 && (
-            <Text style={styles.engagementText}>
-              💬 {post.commentCount}{" "}
-              {post.commentCount === 1 ? "comment" : "comments"}
-            </Text>
+            <View style={styles.engagementItem}>
+              <Text style={styles.engagementText}>
+                💬 {post.commentCount}{" "}
+                {post.commentCount === 1 ? "comment" : "comments"}
+              </Text>
+            </View>
           )}
         </View>
       )}
-    </View>
+
+      {/* NEW: Trending indicator for viral posts */}
+      {likeCount + respectCount + (post.commentCount || 0) > 50 && (
+        <View style={styles.trendingBadge}>
+          <Ionicons name="trending-up" size={16} color={colors.secondary} />
+          <Text style={styles.trendingText}>Trending in your gym</Text>
+        </View>
+      )}
+    </Animated.View>
   );
 };
 
@@ -352,12 +586,12 @@ const styles = {
     flexDirection: "row",
     alignItems: "center",
     marginBottom: 2,
+    gap: 8,
   },
   userName: {
     fontSize: 16,
     fontWeight: "bold",
     color: colors.text,
-    marginRight: 8,
   },
   moodEmoji: {
     fontSize: 16,
@@ -380,9 +614,56 @@ const styles = {
     fontSize: 10,
     fontWeight: "600",
   },
+  headerRight: {
+    alignItems: "flex-end",
+    gap: 4,
+  },
   timestamp: {
     fontSize: 12,
     color: colors.textSecondary,
+  },
+  moreButton: {
+    padding: 4,
+  },
+
+  // NEW: Achievement Badge
+  achievementBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: colors.secondary + "20",
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 8,
+    gap: 2,
+  },
+  achievementText: {
+    fontSize: 10,
+    fontWeight: "600",
+    color: colors.secondary,
+  },
+
+  // NEW: Quick Actions
+  quickActionsContainer: {
+    flexDirection: "row",
+    gap: 10,
+    marginBottom: 15,
+    paddingHorizontal: 10,
+  },
+  quickActionButton: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: colors.backgroundLight,
+    borderRadius: 20,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    gap: 6,
+  },
+  quickActionText: {
+    fontSize: 12,
+    color: colors.text,
+    fontWeight: "500",
   },
 
   // Session Header
@@ -412,6 +693,28 @@ const styles = {
     fontSize: 12,
     color: colors.textSecondary,
     marginTop: 2,
+  },
+
+  // NEW: Live Indicator
+  liveIndicator: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: colors.error + "20",
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    gap: 4,
+  },
+  liveDot: {
+    width: 6,
+    height: 6,
+    backgroundColor: colors.error,
+    borderRadius: 3,
+  },
+  liveText: {
+    fontSize: 10,
+    fontWeight: "bold",
+    color: colors.error,
   },
 
   // Intensity Bar
@@ -499,7 +802,7 @@ const styles = {
     marginBottom: 15,
   },
 
-  // Action Bar
+  // REVOLUTIONARY Action Bar
   actionBar: {
     flexDirection: "row",
     alignItems: "center",
@@ -519,18 +822,41 @@ const styles = {
     fontWeight: "500",
   },
 
-  // Engagement Bar
+  // Enhanced Engagement Bar
   engagementBar: {
     flexDirection: "row",
     alignItems: "center",
     gap: 15,
     marginTop: 10,
     paddingTop: 8,
+    flexWrap: "wrap",
+  },
+  engagementItem: {
+    flexDirection: "row",
+    alignItems: "center",
   },
   engagementText: {
     fontSize: 12,
     color: colors.textSecondary,
     fontWeight: "500",
+  },
+
+  // NEW: Trending Badge
+  trendingBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: colors.secondary + "20",
+    borderRadius: 15,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    marginTop: 10,
+    gap: 4,
+  },
+  trendingText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: colors.secondary,
   },
 };
 

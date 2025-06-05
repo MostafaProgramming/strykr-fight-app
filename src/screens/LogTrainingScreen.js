@@ -1,3 +1,4 @@
+// src/screens/LogTrainingScreen.js - WITH MEDIA UPLOAD
 import React, { useState } from "react";
 import {
   View,
@@ -7,12 +8,20 @@ import {
   TextInput,
   Alert,
   Modal,
+  Switch,
+  Image,
+  Dimensions,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import * as ImagePicker from "expo-image-picker";
 import { colors } from "../constants/colors";
 import { screenStyles } from "../styles/screenStyles";
 import trainingService from "../services/trainingService";
+import socialFeedService from "../services/socialFeedService";
+import mediaService from "../services/mediaService";
 import achievementsService from "../services/achievementsService";
+
+const { width } = Dimensions.get("window");
 
 const LogTrainingScreen = ({ member, onBack }) => {
   const [selectedType, setSelectedType] = useState("bag work");
@@ -20,8 +29,13 @@ const LogTrainingScreen = ({ member, onBack }) => {
   const [rounds, setRounds] = useState("6");
   const [intensity, setIntensity] = useState(7);
   const [notes, setNotes] = useState("");
+  const [shareToFeed, setShareToFeed] = useState(true);
   const [isLogging, setIsLogging] = useState(false);
   const [achievementModal, setAchievementModal] = useState(null);
+
+  // NEW: Media state
+  const [selectedMedia, setSelectedMedia] = useState([]);
+  const [uploadingMedia, setUploadingMedia] = useState(false);
 
   const trainingTypes = [
     {
@@ -77,6 +91,173 @@ const LogTrainingScreen = ({ member, onBack }) => {
     return colors.intensityMax;
   };
 
+  // NEW: Request camera/media permissions
+  const requestPermissions = async () => {
+    const { status: cameraStatus } =
+      await ImagePicker.requestCameraPermissionsAsync();
+    const { status: mediaStatus } =
+      await ImagePicker.requestMediaLibraryPermissionsAsync();
+
+    if (cameraStatus !== "granted" || mediaStatus !== "granted") {
+      Alert.alert(
+        "Permissions Required",
+        "Please enable camera and photo library permissions to add photos and videos to your training posts.",
+      );
+      return false;
+    }
+    return true;
+  };
+
+  // NEW: Add photo from camera or library
+  const addPhoto = async () => {
+    const hasPermissions = await requestPermissions();
+    if (!hasPermissions) return;
+
+    Alert.alert(
+      "Add Photo",
+      "Choose how you'd like to add a photo to your training session",
+      [
+        {
+          text: "Camera",
+          onPress: async () => {
+            const result = await ImagePicker.launchCameraAsync({
+              mediaTypes: ImagePicker.MediaTypeOptions.Images,
+              allowsEditing: true,
+              aspect: [4, 3],
+              quality: 0.8,
+            });
+
+            if (!result.canceled) {
+              const newMedia = {
+                id: Date.now().toString(),
+                type: "image",
+                uri: result.assets[0].uri,
+                isLocal: true,
+              };
+              setSelectedMedia([...selectedMedia, newMedia]);
+            }
+          },
+        },
+        {
+          text: "Photo Library",
+          onPress: async () => {
+            const result = await ImagePicker.launchImageLibraryAsync({
+              mediaTypes: ImagePicker.MediaTypeOptions.Images,
+              allowsEditing: true,
+              aspect: [4, 3],
+              quality: 0.8,
+            });
+
+            if (!result.canceled) {
+              const newMedia = {
+                id: Date.now().toString(),
+                type: "image",
+                uri: result.assets[0].uri,
+                isLocal: true,
+              };
+              setSelectedMedia([...selectedMedia, newMedia]);
+            }
+          },
+        },
+        { text: "Cancel", style: "cancel" },
+      ],
+    );
+  };
+
+  // NEW: Add video
+  const addVideo = async () => {
+    const hasPermissions = await requestPermissions();
+    if (!hasPermissions) return;
+
+    Alert.alert(
+      "Add Video",
+      "Record or select a technique video (max 30 seconds)",
+      [
+        {
+          text: "Record Video",
+          onPress: async () => {
+            const result = await ImagePicker.launchCameraAsync({
+              mediaTypes: ImagePicker.MediaTypeOptions.Videos,
+              allowsEditing: true,
+              videoMaxDuration: 30,
+              videoQuality: ImagePicker.VideoQuality.Medium,
+            });
+
+            if (!result.canceled) {
+              const newMedia = {
+                id: Date.now().toString(),
+                type: "video",
+                uri: result.assets[0].uri,
+                duration: result.assets[0].duration,
+                isLocal: true,
+              };
+              setSelectedMedia([...selectedMedia, newMedia]);
+            }
+          },
+        },
+        {
+          text: "Video Library",
+          onPress: async () => {
+            const result = await ImagePicker.launchImageLibraryAsync({
+              mediaTypes: ImagePicker.MediaTypeOptions.Videos,
+              allowsEditing: true,
+              videoMaxDuration: 30,
+              videoQuality: ImagePicker.VideoQuality.Medium,
+            });
+
+            if (!result.canceled) {
+              const newMedia = {
+                id: Date.now().toString(),
+                type: "video",
+                uri: result.assets[0].uri,
+                duration: result.assets[0].duration,
+                isLocal: true,
+              };
+              setSelectedMedia([...selectedMedia, newMedia]);
+            }
+          },
+        },
+        { text: "Cancel", style: "cancel" },
+      ],
+    );
+  };
+
+  // NEW: Remove media
+  const removeMedia = (mediaId) => {
+    setSelectedMedia(selectedMedia.filter((media) => media.id !== mediaId));
+  };
+
+  // NEW: Upload media to Firebase Storage (simplified for now)
+  const uploadMediaFiles = async (sessionId) => {
+    if (selectedMedia.length === 0) return [];
+
+    setUploadingMedia(true);
+    const uploadedMedia = [];
+
+    try {
+      for (const media of selectedMedia) {
+        // In a real app, you'd upload to Firebase Storage here
+        // For now, we'll simulate with local URIs
+        const uploadedItem = {
+          id: media.id,
+          type: media.type,
+          downloadURL: media.uri, // In production, this would be the Firebase Storage URL
+          fileName: `${sessionId}_${media.id}`,
+          uploadedAt: new Date(),
+          uploadedBy: member.uid,
+        };
+        uploadedMedia.push(uploadedItem);
+      }
+    } catch (error) {
+      console.error("Error uploading media:", error);
+      Alert.alert("Error", "Failed to upload some media files");
+    } finally {
+      setUploadingMedia(false);
+    }
+
+    return uploadedMedia;
+  };
+
   const handleLogSession = async () => {
     if (!duration || duration === "0") {
       Alert.alert("Error", "Please enter a valid duration");
@@ -86,7 +267,7 @@ const LogTrainingScreen = ({ member, onBack }) => {
     setIsLogging(true);
 
     try {
-      // Log the training session
+      // 1. Log the training session
       const sessionData = {
         type: selectedType,
         duration: parseInt(duration),
@@ -107,11 +288,59 @@ const LogTrainingScreen = ({ member, onBack }) => {
       const result = await trainingService.addTrainingSession(sessionData);
 
       if (result.success) {
-        // Get updated training stats for achievement checking
-        const statsResult = await trainingService.getTrainingStats(member.uid);
+        // 2. Upload media if any
+        let uploadedMedia = [];
+        if (selectedMedia.length > 0) {
+          uploadedMedia = await uploadMediaFiles(result.sessionId);
+        }
 
+        // 3. Share to feed if user wants to
+        if (shareToFeed) {
+          const feedData = {
+            sessionId: result.sessionId,
+            userId: member.uid,
+            userName: member.name,
+            userAvatar: member.avatar,
+            userGym: member.gym || "FightTracker Gym",
+            userLevel: member.fighterLevel || "Amateur",
+
+            // Session details
+            sessionType: selectedType,
+            sessionDuration: parseInt(duration),
+            sessionRounds: parseInt(rounds) || 0,
+            sessionIntensity: parseInt(intensity),
+            sessionNotes: notes.trim(),
+            sessionCalories: calculateCalories(sessionData),
+
+            // NEW: Media
+            media: uploadedMedia,
+
+            // Post metadata
+            timestamp: new Date(),
+            likes: [],
+            likeCount: 0,
+            respects: [],
+            respectCount: 0,
+            comments: [],
+            commentCount: 0,
+            shares: 0,
+            isPublic: true,
+            postType: "training_session",
+          };
+
+          const feedResult = await socialFeedService.createTrainingPost(
+            feedData,
+            member,
+          );
+
+          if (!feedResult.success) {
+            console.warn("Failed to share to feed:", feedResult.error);
+          }
+        }
+
+        // 4. Check for achievements
+        const statsResult = await trainingService.getTrainingStats(member.uid);
         if (statsResult.success) {
-          // Check for new achievements
           const achievementResult =
             await achievementsService.checkAndAwardAchievements(
               member.uid,
@@ -122,17 +351,23 @@ const LogTrainingScreen = ({ member, onBack }) => {
             achievementResult.success &&
             achievementResult.newAchievements.length > 0
           ) {
-            // Show achievement modal
             setAchievementModal(achievementResult.newAchievements[0]);
           }
         }
 
+        const mediaText =
+          selectedMedia.length > 0
+            ? ` with ${selectedMedia.length} ${selectedMedia.length === 1 ? "photo/video" : "photos/videos"}`
+            : "";
+
         Alert.alert(
           "Session Logged! 🥊",
-          `Your ${selectedType} session has been recorded successfully.`,
+          shareToFeed
+            ? `Your ${selectedType} session${mediaText} has been logged and shared to the community!`
+            : `Your ${selectedType} session${mediaText} has been logged successfully.`,
           [
             {
-              text: "View Progress",
+              text: "View Feed",
               onPress: () => onBack(),
             },
             {
@@ -152,39 +387,153 @@ const LogTrainingScreen = ({ member, onBack }) => {
     }
   };
 
+  const calculateCalories = (sessionData) => {
+    const baseCaloriesPerMinute = {
+      "bag work": 9,
+      "pad work": 11,
+      sparring: 14,
+      drills: 7,
+      strength: 8,
+      recovery: 4,
+    };
+
+    const baseRate = baseCaloriesPerMinute[sessionData.type.toLowerCase()] || 9;
+    const intensityMultiplier = 0.6 + sessionData.intensity * 0.05;
+
+    return Math.round(sessionData.duration * baseRate * intensityMultiplier);
+  };
+
   const resetForm = () => {
     setDuration("30");
     setRounds("6");
     setIntensity(7);
     setNotes("");
+    setShareToFeed(true);
+    setSelectedMedia([]); // NEW: Reset media
   };
 
-  const handleQuickLog = async (type, defaultDuration, defaultIntensity) => {
-    const quickSessionData = {
-      type: type,
-      duration: defaultDuration,
-      rounds: type === "sparring" ? 5 : type === "bag work" ? 6 : 0,
-      intensity: defaultIntensity,
-      notes: `Quick ${type} session`,
-      userId: member.uid,
-      date: new Date().toISOString().split("T")[0],
-      time: new Date().toLocaleTimeString("en-US", {
-        hour: "2-digit",
-        minute: "2-digit",
-      }),
-    };
+  // NEW: Media Preview Component
+  const MediaPreview = () => {
+    if (selectedMedia.length === 0) return null;
 
-    setIsLogging(true);
-    const result = await trainingService.addTrainingSession(quickSessionData);
-    setIsLogging(false);
-
-    if (result.success) {
-      Alert.alert("Quick Log Success! 🥊", `${type} session logged!`);
-      onBack();
-    } else {
-      Alert.alert("Error", "Failed to log quick session");
-    }
+    return (
+      <View style={styles.mediaPreview}>
+        <Text style={styles.mediaPreviewTitle}>
+          Media ({selectedMedia.length}/5)
+        </Text>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+          {selectedMedia.map((media) => (
+            <View key={media.id} style={styles.mediaItem}>
+              {media.type === "image" ? (
+                <Image source={{ uri: media.uri }} style={styles.mediaImage} />
+              ) : (
+                <View style={styles.videoPlaceholder}>
+                  <Ionicons name="play-circle" size={32} color={colors.text} />
+                  <Text style={styles.videoDuration}>
+                    {Math.round(media.duration / 1000)}s
+                  </Text>
+                </View>
+              )}
+              <TouchableOpacity
+                style={styles.removeMediaButton}
+                onPress={() => removeMedia(media.id)}
+              >
+                <Ionicons name="close-circle" size={20} color={colors.error} />
+              </TouchableOpacity>
+            </View>
+          ))}
+        </ScrollView>
+      </View>
+    );
   };
+
+  // NEW: Media Upload Section
+  const MediaUploadSection = () => (
+    <View style={screenStyles.section}>
+      <Text style={screenStyles.sectionTitle}>
+        Add Photos & Videos (Optional)
+      </Text>
+      <Text style={styles.mediaSubtitle}>
+        Share your technique, form, or training environment
+      </Text>
+
+      <View style={styles.mediaButtons}>
+        <TouchableOpacity
+          style={[
+            styles.mediaButton,
+            selectedMedia.length >= 5 && styles.disabledButton,
+          ]}
+          onPress={addPhoto}
+          disabled={selectedMedia.length >= 5}
+        >
+          <Ionicons name="camera" size={20} color={colors.primary} />
+          <Text style={styles.mediaButtonText}>Add Photo</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[
+            styles.mediaButton,
+            selectedMedia.length >= 5 && styles.disabledButton,
+          ]}
+          onPress={addVideo}
+          disabled={selectedMedia.length >= 5}
+        >
+          <Ionicons name="videocam" size={20} color={colors.secondary} />
+          <Text style={styles.mediaButtonText}>Add Video</Text>
+        </TouchableOpacity>
+      </View>
+
+      <MediaPreview />
+
+      {selectedMedia.length > 0 && (
+        <View style={styles.mediaInfo}>
+          <Ionicons
+            name="information-circle"
+            size={16}
+            color={colors.textSecondary}
+          />
+          <Text style={styles.mediaInfoText}>
+            {selectedMedia.length}/5 media files • Videos max 30s
+          </Text>
+        </View>
+      )}
+    </View>
+  );
+
+  const SocialSharingToggle = () => (
+    <View style={styles.sharingContainer}>
+      <View style={styles.sharingHeader}>
+        <View style={styles.sharingInfo}>
+          <Text style={styles.sharingTitle}>Share to Community Feed</Text>
+          <Text style={styles.sharingSubtitle}>
+            Inspire others with your training session
+            {selectedMedia.length > 0 &&
+              ` and ${selectedMedia.length} media file${selectedMedia.length > 1 ? "s" : ""}`}
+          </Text>
+        </View>
+        <Switch
+          value={shareToFeed}
+          onValueChange={setShareToFeed}
+          trackColor={{
+            false: colors.backgroundLight,
+            true: colors.primary + "40",
+          }}
+          thumbColor={shareToFeed ? colors.primary : colors.textSecondary}
+        />
+      </View>
+
+      {shareToFeed && (
+        <View style={styles.sharingPreview}>
+          <Ionicons name="people" size={16} color={colors.primary} />
+          <Text style={styles.sharingPreviewText}>
+            Your session will appear in the community feed with your training
+            stats
+            {selectedMedia.length > 0 && " and media"}
+          </Text>
+        </View>
+      )}
+    </View>
+  );
 
   const TrainingTypeButton = ({ type }) => (
     <TouchableOpacity
@@ -267,52 +616,9 @@ const LogTrainingScreen = ({ member, onBack }) => {
         style={screenStyles.content}
         showsVerticalScrollIndicator={false}
       >
-        {/* Quick Log Options */}
-        <View style={screenStyles.section}>
-          <Text style={screenStyles.sectionTitle}>Quick Log</Text>
-          <View style={styles.quickLogContainer}>
-            <TouchableOpacity
-              style={styles.quickLogButton}
-              onPress={() => handleQuickLog("bag work", 30, 7)}
-              disabled={isLogging}
-            >
-              <Ionicons name="fitness" size={20} color={colors.bagWork} />
-              <Text style={styles.quickLogText}>30min Bag Work</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.quickLogButton}
-              onPress={() => handleQuickLog("sparring", 25, 9)}
-              disabled={isLogging}
-            >
-              <Ionicons name="people" size={20} color={colors.sparring} />
-              <Text style={styles.quickLogText}>25min Sparring</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.quickLogButton}
-              onPress={() => handleQuickLog("pad work", 40, 8)}
-              disabled={isLogging}
-            >
-              <Ionicons
-                name="hand-left-outline"
-                size={20}
-                color={colors.padWork}
-              />
-              <Text style={styles.quickLogText}>40min Pads</Text>
-            </TouchableOpacity>
-          </View>
-
-          <View style={styles.divider}>
-            <View style={styles.dividerLine} />
-            <Text style={styles.dividerText}>OR</Text>
-            <View style={styles.dividerLine} />
-          </View>
-        </View>
-
         {/* Training Type Selection */}
         <View style={screenStyles.section}>
-          <Text style={screenStyles.sectionTitle}>Custom Training Session</Text>
+          <Text style={screenStyles.sectionTitle}>Training Type</Text>
           <View style={styles.typeGrid}>
             {trainingTypes.map((type) => (
               <TrainingTypeButton key={type.id} type={type} />
@@ -323,7 +629,6 @@ const LogTrainingScreen = ({ member, onBack }) => {
         {/* Duration and Rounds */}
         <View style={screenStyles.section}>
           <Text style={screenStyles.sectionTitle}>Session Details</Text>
-
           <View style={styles.inputRow}>
             <View style={styles.inputContainer}>
               <Text style={styles.inputLabel}>Duration (minutes)</Text>
@@ -404,13 +709,11 @@ const LogTrainingScreen = ({ member, onBack }) => {
                 </TouchableOpacity>
               ))}
             </View>
-
-            <View style={styles.rpeScale}>
-              <Text style={styles.rpeScaleText}>1 - Very Light</Text>
-              <Text style={styles.rpeScaleText}>10 - Maximum</Text>
-            </View>
           </View>
         </View>
+
+        {/* NEW: Media Upload Section */}
+        <MediaUploadSection />
 
         {/* Notes */}
         <View style={screenStyles.section}>
@@ -427,99 +730,27 @@ const LogTrainingScreen = ({ member, onBack }) => {
           />
         </View>
 
-        {/* Session Preview */}
-        <View style={styles.previewContainer}>
-          <Text style={styles.previewTitle}>Session Preview</Text>
-          <View style={styles.previewCard}>
-            <View style={styles.previewHeader}>
-              <View
-                style={[
-                  styles.previewIcon,
-                  {
-                    backgroundColor:
-                      trainingTypes.find((t) => t.id === selectedType)?.color +
-                      "20",
-                  },
-                ]}
-              >
-                <Ionicons
-                  name={
-                    trainingTypes.find((t) => t.id === selectedType)?.icon ||
-                    "fitness"
-                  }
-                  size={20}
-                  color={
-                    trainingTypes.find((t) => t.id === selectedType)?.color ||
-                    colors.primary
-                  }
-                />
-              </View>
-              <View style={styles.previewInfo}>
-                <Text style={styles.previewType}>
-                  {trainingTypes.find((t) => t.id === selectedType)?.label}
-                </Text>
-                <Text style={styles.previewDate}>
-                  {new Date().toLocaleDateString("en-US", {
-                    weekday: "long",
-                    month: "short",
-                    day: "numeric",
-                  })}
-                </Text>
-              </View>
-              <View
-                style={[
-                  styles.previewIntensity,
-                  { backgroundColor: getIntensityColor(intensity) + "20" },
-                ]}
-              >
-                <Text
-                  style={[
-                    styles.previewIntensityText,
-                    { color: getIntensityColor(intensity) },
-                  ]}
-                >
-                  RPE {intensity}
-                </Text>
-              </View>
-            </View>
-
-            <View style={styles.previewDetails}>
-              <View style={styles.previewDetail}>
-                <Ionicons name="timer" size={16} color={colors.textSecondary} />
-                <Text style={styles.previewDetailText}>{duration} min</Text>
-              </View>
-              {rounds &&
-                selectedType !== "recovery" &&
-                selectedType !== "strength" && (
-                  <View style={styles.previewDetail}>
-                    <Ionicons
-                      name="repeat"
-                      size={16}
-                      color={colors.textSecondary}
-                    />
-                    <Text style={styles.previewDetailText}>
-                      {rounds} rounds
-                    </Text>
-                  </View>
-                )}
-            </View>
-
-            {notes && <Text style={styles.previewNotes}>{notes}</Text>}
-          </View>
-        </View>
+        {/* Social Sharing Toggle */}
+        <SocialSharingToggle />
 
         {/* Log Button */}
         <TouchableOpacity
           style={[
             screenStyles.primaryButton,
             { marginTop: 30, marginBottom: 30 },
-            isLogging && { opacity: 0.7 },
+            (isLogging || uploadingMedia) && { opacity: 0.7 },
           ]}
           onPress={handleLogSession}
-          disabled={isLogging}
+          disabled={isLogging || uploadingMedia}
         >
           <Text style={screenStyles.primaryButtonText}>
-            {isLogging ? "Logging Session..." : "Log Training Session"}
+            {isLogging
+              ? "Logging Session..."
+              : uploadingMedia
+                ? "Uploading Media..."
+                : shareToFeed
+                  ? "Log & Share Training"
+                  : "Log Training Session"}
           </Text>
         </TouchableOpacity>
       </ScrollView>
@@ -535,44 +766,6 @@ const LogTrainingScreen = ({ member, onBack }) => {
 };
 
 const styles = {
-  quickLogContainer: {
-    flexDirection: "row",
-    gap: 10,
-    marginBottom: 20,
-  },
-  quickLogButton: {
-    flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: colors.cardBackground,
-    borderRadius: 12,
-    padding: 15,
-    borderWidth: 1,
-    borderColor: colors.cardBorder,
-    gap: 8,
-  },
-  quickLogText: {
-    fontSize: 12,
-    color: colors.text,
-    fontWeight: "500",
-  },
-  divider: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginVertical: 20,
-  },
-  dividerLine: {
-    flex: 1,
-    height: 1,
-    backgroundColor: colors.cardBorder,
-  },
-  dividerText: {
-    fontSize: 12,
-    color: colors.textSecondary,
-    paddingHorizontal: 15,
-    fontWeight: "500",
-  },
   typeGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
@@ -678,13 +871,129 @@ const styles = {
   selectedIntensityButtonText: {
     fontWeight: "bold",
   },
-  rpeScale: {
-    flexDirection: "row",
-    justifyContent: "space-between",
+
+  // NEW: Media Upload Styles
+  mediaSubtitle: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    marginBottom: 15,
   },
-  rpeScaleText: {
+  mediaButtons: {
+    flexDirection: "row",
+    gap: 12,
+    marginBottom: 20,
+  },
+  mediaButton: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: colors.cardBackground,
+    borderRadius: 12,
+    padding: 15,
+    borderWidth: 1,
+    borderColor: colors.cardBorder,
+    gap: 8,
+  },
+  disabledButton: {
+    opacity: 0.5,
+  },
+  mediaButtonText: {
+    fontSize: 14,
+    color: colors.text,
+    fontWeight: "500",
+  },
+  mediaPreview: {
+    marginBottom: 15,
+  },
+  mediaPreviewTitle: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: colors.text,
+    marginBottom: 10,
+  },
+  mediaItem: {
+    position: "relative",
+    marginRight: 12,
+    borderRadius: 8,
+    overflow: "hidden",
+  },
+  mediaImage: {
+    width: 80,
+    height: 80,
+    borderRadius: 8,
+  },
+  videoPlaceholder: {
+    width: 80,
+    height: 80,
+    backgroundColor: colors.backgroundLight,
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  videoDuration: {
+    fontSize: 10,
+    color: colors.text,
+    marginTop: 4,
+  },
+  removeMediaButton: {
+    position: "absolute",
+    top: -8,
+    right: -8,
+    backgroundColor: colors.cardBackground,
+    borderRadius: 10,
+  },
+  mediaInfo: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginTop: 10,
+  },
+  mediaInfoText: {
     fontSize: 12,
     color: colors.textSecondary,
+  },
+
+  // Social Sharing Styles
+  sharingContainer: {
+    backgroundColor: colors.cardBackground,
+    borderRadius: 15,
+    padding: 20,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: colors.cardBorder,
+  },
+  sharingHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  sharingInfo: {
+    flex: 1,
+  },
+  sharingTitle: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: colors.text,
+    marginBottom: 4,
+  },
+  sharingSubtitle: {
+    fontSize: 14,
+    color: colors.textSecondary,
+  },
+  sharingPreview: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: 15,
+    padding: 12,
+    backgroundColor: colors.primary + "10",
+    borderRadius: 10,
+    gap: 8,
+  },
+  sharingPreviewText: {
+    fontSize: 12,
+    color: colors.text,
+    flex: 1,
   },
   notesInput: {
     backgroundColor: colors.cardBackground,
@@ -696,80 +1005,7 @@ const styles = {
     fontSize: 16,
     minHeight: 100,
   },
-  previewContainer: {
-    marginTop: 20,
-  },
-  previewTitle: {
-    fontSize: 18,
-    fontWeight: "bold",
-    color: colors.text,
-    marginBottom: 15,
-  },
-  previewCard: {
-    backgroundColor: colors.cardBackground,
-    borderRadius: 15,
-    padding: 20,
-    borderWidth: 1,
-    borderColor: colors.cardBorder,
-  },
-  previewHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 15,
-  },
-  previewIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    alignItems: "center",
-    justifyContent: "center",
-    marginRight: 15,
-  },
-  previewInfo: {
-    flex: 1,
-  },
-  previewType: {
-    fontSize: 16,
-    fontWeight: "bold",
-    color: colors.text,
-    marginBottom: 4,
-  },
-  previewDate: {
-    fontSize: 14,
-    color: colors.textSecondary,
-  },
-  previewIntensity: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  previewIntensityText: {
-    fontSize: 12,
-    fontWeight: "600",
-  },
-  previewDetails: {
-    flexDirection: "row",
-    gap: 20,
-    marginBottom: 10,
-  },
-  previewDetail: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-  },
-  previewDetailText: {
-    fontSize: 14,
-    color: colors.textSecondary,
-  },
-  previewNotes: {
-    fontSize: 14,
-    color: colors.text,
-    fontStyle: "italic",
-    marginTop: 10,
-    paddingTop: 10,
-    borderTopWidth: 1,
-    borderTopColor: colors.cardBorder,
-  },
+
   // Achievement Modal Styles
   modalOverlay: {
     flex: 1,

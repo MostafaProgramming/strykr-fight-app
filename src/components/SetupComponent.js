@@ -1,3 +1,4 @@
+// src/components/SetupComponent.js - ENHANCED WITH SOCIAL FEED
 import React, { useState } from "react";
 import {
   View,
@@ -20,7 +21,7 @@ const SetupComponent = () => {
       rounds: 6,
       intensity: 8,
       duration: 30,
-      date: new Date(),
+      date: new Date().toISOString().split("T")[0],
       notes: "Focused on power combinations",
       calories: 280,
       userId: "sample_user_1",
@@ -30,7 +31,9 @@ const SetupComponent = () => {
       rounds: 5,
       intensity: 9,
       duration: 25,
-      date: new Date(Date.now() - 24 * 60 * 60 * 1000),
+      date: new Date(Date.now() - 24 * 60 * 60 * 1000)
+        .toISOString()
+        .split("T")[0],
       notes: "Great defensive work",
       calories: 350,
       userId: "sample_user_1",
@@ -40,10 +43,12 @@ const SetupComponent = () => {
       rounds: 8,
       intensity: 7,
       duration: 40,
-      date: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000),
+      date: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000)
+        .toISOString()
+        .split("T")[0],
       notes: "Working on timing",
       calories: 320,
-      userId: "sample_user_1",
+      userId: "sample_user_2",
     },
   ];
 
@@ -112,37 +117,158 @@ const SetupComponent = () => {
     },
   ];
 
-  const sampleFeedPosts = [
+  // NEW: Sample Social Feed Posts
+  const sampleSocialFeedPosts = [
     {
+      // User info
       userId: "sample_user_1",
-      userName: "Mike Rodriguez",
+      userName: "Mike 'Thunder' Rodriguez",
       userAvatar: "MR",
       userGym: "Iron Fist Gym",
       userLevel: "Amateur",
+
+      // Session details
       sessionType: "Sparring",
       sessionDuration: 45,
       sessionRounds: 8,
       sessionIntensity: 9,
       sessionNotes: "Epic sparring session! Really pushed my limits today 💪",
+      sessionCalories: 420,
+
+      // Post metadata
       timestamp: new Date(),
       likes: [],
+      likeCount: 12,
+      respects: [], // NEW: Respect badges
+      respectCount: 5, // NEW
       comments: [],
+      commentCount: 3,
+      shares: 1,
+      isPublic: true,
+      postType: "training_session",
+
+      // NEW: Engagement features
+      engagementScore: 23, // Calculated: likes + respects*2 + comments*3
+      isTrending: false,
+      isViral: false,
     },
     {
       userId: "sample_user_2",
-      userName: "Sarah Chen",
+      userName: "Sarah 'Lightning' Chen",
       userAvatar: "SC",
       userGym: "Warriors Academy",
       userLevel: "Pro",
+
       sessionType: "Pad Work",
       sessionDuration: 60,
       sessionRounds: 12,
       sessionIntensity: 8,
       sessionNotes:
         "Perfect technique session. Left hook is getting deadly! 🔥",
-      timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000),
+      sessionCalories: 480,
+
+      timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000), // 2 hours ago
       likes: [],
+      likeCount: 24,
+      respects: [],
+      respectCount: 8,
       comments: [],
+      commentCount: 7,
+      shares: 3,
+      isPublic: true,
+      postType: "training_session",
+
+      engagementScore: 64, // High engagement
+      isTrending: true,
+      isViral: false,
+    },
+    {
+      userId: "sample_user_3",
+      userName: "Jake 'The Beast' Wilson",
+      userAvatar: "JW",
+      userGym: "Iron Fist Gym",
+      userLevel: "Intermediate",
+
+      sessionType: "Bag Work",
+      sessionDuration: 40,
+      sessionRounds: 10,
+      sessionIntensity: 8,
+      sessionNotes: "New personal best! Feeling unstoppable 🥊",
+      sessionCalories: 380,
+
+      timestamp: new Date(Date.now() - 4 * 60 * 60 * 1000), // 4 hours ago
+      likes: [],
+      likeCount: 18,
+      respects: [],
+      respectCount: 6,
+      comments: [],
+      commentCount: 4,
+      shares: 2,
+      isPublic: true,
+      postType: "training_session",
+
+      engagementScore: 42,
+      isTrending: false,
+      isViral: false,
+    },
+    {
+      userId: "sample_user_4",
+      userName: "Emma 'Fury' Rodriguez",
+      userAvatar: "ER",
+      userGym: "Warriors Academy",
+      userLevel: "Beginner",
+
+      sessionType: "Drills",
+      sessionDuration: 30,
+      sessionRounds: 6,
+      sessionIntensity: 6,
+      sessionNotes: "First week of training! Loving every minute of it 😊",
+      sessionCalories: 210,
+
+      timestamp: new Date(Date.now() - 6 * 60 * 60 * 1000), // 6 hours ago
+      likes: [],
+      likeCount: 15,
+      respects: [],
+      respectCount: 12, // Lots of respect for beginners!
+      comments: [],
+      commentCount: 8,
+      shares: 1,
+      isPublic: true,
+      postType: "training_session",
+
+      engagementScore: 63, // High engagement for supportive community
+      isTrending: false,
+      isViral: false,
+    },
+    {
+      userId: "sample_user_5",
+      userName: "Coach Marcus 'Steel' Thompson",
+      userAvatar: "MT",
+      userGym: "Iron Fist Gym",
+      userLevel: "Pro",
+
+      sessionType: "Strength",
+      sessionDuration: 60,
+      sessionRounds: 0,
+      sessionIntensity: 7,
+      sessionNotes:
+        "Conditioning day - the foundation of all great fighters! 💪",
+      sessionCalories: 450,
+
+      timestamp: new Date(Date.now() - 8 * 60 * 60 * 1000), // 8 hours ago
+      likes: [],
+      likeCount: 31,
+      respects: [],
+      respectCount: 15,
+      comments: [],
+      commentCount: 12,
+      shares: 5,
+      isPublic: true,
+      postType: "training_session",
+
+      engagementScore: 102, // Very high engagement - coach wisdom
+      isTrending: true,
+      isViral: true, // Over 100 engagement score
     },
   ];
 
@@ -230,14 +356,15 @@ const SetupComponent = () => {
     }
   };
 
-  const setupFeedPosts = async () => {
+  // NEW: Setup Social Feed Posts
+  const setupSocialFeed = async () => {
     try {
       setLoading(true);
       setStatus("Setting up social feed...");
 
       const feedRef = collection(db, "socialFeed");
 
-      for (const post of sampleFeedPosts) {
+      for (const post of sampleSocialFeedPosts) {
         const docRef = await addDoc(feedRef, post);
         console.log(
           `Added feed post by: ${post.userName} with ID: ${docRef.id}`,
@@ -246,12 +373,12 @@ const SetupComponent = () => {
 
       setStatus("Social feed added successfully!");
       Alert.alert(
-        "Success",
-        "Sample social feed posts have been added to Firebase!",
+        "Success! 🔥",
+        "Sample social feed posts have been added to Firebase! Your feed is now ready!",
       );
     } catch (error) {
-      console.error("Error adding feed posts:", error);
-      setStatus("Error adding feed posts");
+      console.error("Error adding social feed:", error);
+      setStatus("Error adding social feed");
       Alert.alert("Error", error.message);
     } finally {
       setLoading(false);
@@ -263,16 +390,23 @@ const SetupComponent = () => {
       setLoading(true);
       setStatus("Setting up complete FightTracker database...");
 
+      // Setup everything in sequence
       await setupTrainingSessions();
       await setupAchievements();
       await setupChallenges();
-      await setupFeedPosts();
+      await setupSocialFeed(); // NEW
 
       setStatus("Complete setup finished!");
       Alert.alert(
-        "Setup Complete! 🥊",
-        "FightTracker database has been fully configured with sample data including training sessions, achievements, challenges, and social feed posts.",
-        [{ text: "Awesome!", style: "default" }],
+        "Setup Complete! 🥊🔥",
+        "FightTracker database has been fully configured with:\n\n" +
+          "✅ Training sessions\n" +
+          "✅ Achievements system\n" +
+          "✅ Challenges\n" +
+          "✅ Social feed posts\n" +
+          "✅ Community features\n\n" +
+          "Your app is now ready for the revolutionary social training experience!",
+        [{ text: "Let's Fight!", style: "default" }],
       );
     } catch (error) {
       console.error("Error in complete setup:", error);
@@ -312,12 +446,13 @@ const SetupComponent = () => {
         `Found ${sessionCount} sessions, ${achievementCount} achievements, ${challengeCount} challenges, ${feedCount} posts`,
       );
       Alert.alert(
-        "Data Check",
-        `📊 FightTracker Database Status:\n\n` +
-          `Training Sessions: ${sessionCount}\n` +
-          `Achievements: ${achievementCount}\n` +
-          `Challenges: ${challengeCount}\n` +
-          `Social Feed Posts: ${feedCount}`,
+        "Data Check 📊",
+        `FightTracker Database Status:\n\n` +
+          `🥊 Training Sessions: ${sessionCount}\n` +
+          `🏆 Achievements: ${achievementCount}\n` +
+          `🎯 Challenges: ${challengeCount}\n` +
+          `🔥 Social Feed Posts: ${feedCount}\n\n` +
+          `${feedCount > 0 ? "✅ Your feed is ready!" : "❌ No feed posts yet"}`,
         [{ text: "OK", style: "default" }],
       );
     } catch (error) {
@@ -333,7 +468,7 @@ const SetupComponent = () => {
       <Text style={styles.title}>FightTracker Complete Setup</Text>
       <Text style={styles.subtitle}>
         Setup your FightTracker database with sample training data,
-        achievements, challenges, and social features
+        achievements, challenges, and the revolutionary social feed
       </Text>
 
       {status ? <Text style={styles.status}>{status}</Text> : null}
@@ -388,15 +523,16 @@ const SetupComponent = () => {
         )}
       </TouchableOpacity>
 
+      {/* NEW: Social Feed Setup */}
       <TouchableOpacity
-        style={styles.button}
-        onPress={setupFeedPosts}
+        style={[styles.button, styles.feedButton]}
+        onPress={setupSocialFeed}
         disabled={loading}
       >
         {loading ? (
           <ActivityIndicator color={colors.text} />
         ) : (
-          <Text style={styles.buttonText}>📱 Setup Social Feed</Text>
+          <Text style={styles.buttonText}>🔥 Setup Social Feed</Text>
         )}
       </TouchableOpacity>
 
@@ -421,8 +557,9 @@ const SetupComponent = () => {
         <Text style={styles.infoText}>
           • Sample training sessions (Bag Work, Sparring, Pad Work){"\n"}•
           Achievement system with rarity levels{"\n"}• Weekly and monthly
-          challenges{"\n"}• Social feed posts for community features{"\n"}•
-          Complete fighter profile data{"\n"}• Ready for production use
+          challenges{"\n"}• 🔥 REVOLUTIONARY social feed posts{"\n"}• Fire
+          reactions 🔥 and Respect badges 💪{"\n"}• Community engagement
+          features{"\n"}• Ready for the Instagram of fighting sports!
         </Text>
       </View>
 
@@ -472,6 +609,11 @@ const styles = {
     backgroundColor: colors.primary,
     borderWidth: 2,
     borderColor: colors.primary + "80",
+  },
+  feedButton: {
+    backgroundColor: colors.secondary,
+    borderWidth: 2,
+    borderColor: colors.secondary + "80",
   },
   secondaryButton: {
     backgroundColor: "transparent",

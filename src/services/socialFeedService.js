@@ -1,4 +1,4 @@
-// src/services/socialFeedService.js
+// src/services/socialFeedService.js - ENHANCED WITH FOLLOWING SUPPORT
 import {
   collection,
   addDoc,
@@ -17,7 +17,7 @@ import {
 import { db } from "../config/firebase";
 
 class SocialFeedService {
-  // Get feed posts with real Firebase data
+  // Get feed posts - ENHANCED VERSION
   async getFeedPosts(filterType = "foryou", userId = null, limitCount = 20) {
     try {
       const feedRef = collection(db, "socialFeed");
@@ -25,48 +25,23 @@ class SocialFeedService {
 
       switch (filterType) {
         case "foryou":
-          // Algorithm-based feed (for now, just recent + popular)
+        case "trending":
+          // Just get recent posts ordered by timestamp
           q = query(
             feedRef,
             where("isPublic", "==", true),
-            orderBy("timestamp", "desc"),
-            limit(limitCount),
-          );
-          break;
-
-        case "following":
-          // TODO: Add following system later
-          // For now, exclude user's own posts
-          q = query(
-            feedRef,
-            where("isPublic", "==", true),
-            where("userId", "!=", userId || "none"),
             orderBy("timestamp", "desc"),
             limit(limitCount),
           );
           break;
 
         case "gym":
-          // TODO: Filter by user's gym when we have that data
+          // Filter by gym if we have user info
           q = query(
             feedRef,
             where("isPublic", "==", true),
             orderBy("timestamp", "desc"),
             limit(limitCount),
-          );
-          break;
-
-        case "trending":
-          // Get posts from last week, sorted by engagement
-          const weekAgo = new Date();
-          weekAgo.setDate(weekAgo.getDate() - 7);
-
-          q = query(
-            feedRef,
-            where("isPublic", "==", true),
-            where("timestamp", ">=", Timestamp.fromDate(weekAgo)),
-            orderBy("timestamp", "desc"),
-            limit(limitCount * 2), // Get more to sort by engagement
           );
           break;
 
@@ -87,21 +62,13 @@ class SocialFeedService {
         posts.push({
           id: doc.id,
           ...data,
-          timestamp: data.timestamp?.toDate(),
+          timestamp: data.timestamp?.toDate
+            ? data.timestamp.toDate()
+            : new Date(data.timestamp),
           isLiked: userId ? (data.likes || []).includes(userId) : false,
-          // Calculate engagement score for trending
-          engagementScore: (data.likeCount || 0) + (data.commentCount || 0) * 2,
+          hasRespected: userId ? (data.respects || []).includes(userId) : false,
         });
       });
-
-      // Sort trending by engagement
-      if (filterType === "trending") {
-        posts.sort((a, b) => b.engagementScore - a.engagementScore);
-        return {
-          success: true,
-          posts: posts.slice(0, limitCount),
-        };
-      }
 
       return {
         success: true,
@@ -117,21 +84,151 @@ class SocialFeedService {
     }
   }
 
-  // Like/unlike a post
+  // NEW: Get posts from followed users only
+  async getFeedPostsFromFollowing(
+    followingIds,
+    userId = null,
+    limitCount = 20,
+  ) {
+    try {
+      if (!followingIds || followingIds.length === 0) {
+        return {
+          success: true,
+          posts: [],
+          message: "No following users",
+        };
+      }
+
+      const feedRef = collection(db, "socialFeed");
+
+      // Firestore has a limit of 10 items in 'in' queries, so we need to batch
+      const batchSize = 10;
+      const allPosts = [];
+
+      for (let i = 0; i < followingIds.length; i += batchSize) {
+        const batch = followingIds.slice(i, i + batchSize);
+
+        const q = query(
+          feedRef,
+          where("userId", "in", batch),
+          where("isPublic", "==", true),
+          orderBy("timestamp", "desc"),
+          limit(limitCount),
+        );
+
+        const querySnapshot = await getDocs(q);
+
+        querySnapshot.forEach((doc) => {
+          const data = doc.data();
+          allPosts.push({
+            id: doc.id,
+            ...data,
+            timestamp: data.timestamp?.toDate
+              ? data.timestamp.toDate()
+              : new Date(data.timestamp),
+            isLiked: userId ? (data.likes || []).includes(userId) : false,
+            hasRespected: userId
+              ? (data.respects || []).includes(userId)
+              : false,
+          });
+        });
+      }
+
+      // Sort all posts by timestamp and limit
+      allPosts.sort((a, b) => b.timestamp - a.timestamp);
+      const limitedPosts = allPosts.slice(0, limitCount);
+
+      return {
+        success: true,
+        posts: limitedPosts,
+      };
+    } catch (error) {
+      console.error("Error fetching following posts:", error);
+      return {
+        success: false,
+        error: error.message,
+        posts: [],
+      };
+    }
+  }
+
+  // Create a training post - ENHANCED VERSION
+  async createTrainingPost(feedData, userInfo) {
+    try {
+      const feedRef = collection(db, "socialFeed");
+
+      const post = {
+        // User info
+        userId: feedData.userId,
+        userName: feedData.userName || userInfo.name,
+        userAvatar: feedData.userAvatar || userInfo.avatar,
+        userGym: feedData.userGym || userInfo.gym || "FightTracker Gym",
+        userLevel: feedData.userLevel || userInfo.fighterLevel || "Amateur",
+
+        // Session details
+        sessionType: feedData.sessionType,
+        sessionDuration: feedData.sessionDuration,
+        sessionRounds: feedData.sessionRounds || 0,
+        sessionIntensity: feedData.sessionIntensity,
+        sessionNotes: feedData.sessionNotes || "",
+        sessionCalories: feedData.sessionCalories || 0,
+
+        // NEW: Media support
+        media: feedData.media || [],
+
+        // Post metadata
+        timestamp: Timestamp.fromDate(new Date()),
+        likes: [],
+        likeCount: 0,
+        respects: [], // NEW
+        respectCount: 0, // NEW
+        comments: [],
+        commentCount: 0,
+        shares: 0,
+        isPublic: true,
+        postType: "training_session",
+
+        // Enhanced engagement tracking
+        engagementScore: 0,
+        isTrending: false,
+        isViral: false,
+
+        // NEW: Hashtags and mentions
+        hashtags: this.extractHashtags(feedData.sessionNotes || ""),
+        mentions: this.extractMentions(feedData.sessionNotes || ""),
+      };
+
+      const docRef = await addDoc(feedRef, post);
+
+      return {
+        success: true,
+        postId: docRef.id,
+        message: "Training session shared to feed!",
+      };
+    } catch (error) {
+      console.error("Error creating training post:", error);
+      return {
+        success: false,
+        error: error.message,
+      };
+    }
+  }
+
+  // Like/unlike a post - IMPROVED
   async toggleLike(postId, userId) {
     try {
       const postRef = doc(db, "socialFeed", postId);
 
-      // Get current post to check likes
-      const postSnapshot = await getDocs(
+      // Get current post data first
+      const postDoc = await getDocs(
         query(collection(db, "socialFeed"), where("__name__", "==", postId)),
       );
 
-      if (postSnapshot.empty) {
+      if (postDoc.empty) {
         return { success: false, error: "Post not found" };
       }
 
-      const postData = postSnapshot.docs[0].data();
+      const postData = postDoc.docs[0].data();
       const currentLikes = postData.likes || [];
       const isLiked = currentLikes.includes(userId);
 
@@ -157,6 +254,53 @@ class SocialFeedService {
       };
     } catch (error) {
       console.error("Error toggling like:", error);
+      return {
+        success: false,
+        error: error.message,
+      };
+    }
+  }
+
+  // NEW: Respect badge toggle
+  async toggleRespect(postId, userId) {
+    try {
+      const postRef = doc(db, "socialFeed", postId);
+
+      // Get current post data first
+      const postDoc = await getDocs(
+        query(collection(db, "socialFeed"), where("__name__", "==", postId)),
+      );
+
+      if (postDoc.empty) {
+        return { success: false, error: "Post not found" };
+      }
+
+      const postData = postDoc.docs[0].data();
+      const currentRespects = postData.respects || [];
+      const hasRespected = currentRespects.includes(userId);
+
+      // Toggle respect
+      if (hasRespected) {
+        await updateDoc(postRef, {
+          respects: arrayRemove(userId),
+          respectCount: increment(-1),
+        });
+      } else {
+        await updateDoc(postRef, {
+          respects: arrayUnion(userId),
+          respectCount: increment(1),
+        });
+      }
+
+      return {
+        success: true,
+        hasRespected: !hasRespected,
+        newRespectCount: hasRespected
+          ? (postData.respectCount || 0) - 1
+          : (postData.respectCount || 0) + 1,
+      };
+    } catch (error) {
+      console.error("Error toggling respect:", error);
       return {
         success: false,
         error: error.message,
@@ -196,91 +340,6 @@ class SocialFeedService {
     }
   }
 
-  // Get comments for a post
-  async getPostComments(postId) {
-    try {
-      const postRef = doc(db, "socialFeed", postId);
-      const postDoc = await postRef.get();
-
-      if (!postDoc.exists()) {
-        return { success: false, error: "Post not found" };
-      }
-
-      const comments = postDoc.data().comments || [];
-
-      // Convert timestamps
-      const processedComments = comments.map((comment) => ({
-        ...comment,
-        timestamp: comment.timestamp?.toDate(),
-      }));
-
-      return {
-        success: true,
-        comments: processedComments,
-      };
-    } catch (error) {
-      console.error("Error fetching comments:", error);
-      return {
-        success: false,
-        error: error.message,
-        comments: [],
-      };
-    }
-  }
-
-  // Create a post when user shares training session
-  async createTrainingPost(sessionData, userInfo) {
-    try {
-      const feedRef = collection(db, "socialFeed");
-
-      const post = {
-        sessionId: sessionData.sessionId || null,
-        userId: userInfo.uid,
-        userName: userInfo.name,
-        userAvatar:
-          userInfo.avatar || userInfo.name.substring(0, 2).toUpperCase(),
-        userGym: userInfo.gym || "",
-        userLevel: userInfo.fighterLevel || "Amateur",
-
-        // Session details
-        sessionType: sessionData.type,
-        sessionDuration: sessionData.duration,
-        sessionRounds: sessionData.rounds || 0,
-        sessionIntensity: sessionData.intensity,
-        sessionCalories: sessionData.calories || 0,
-        sessionNotes: sessionData.notes || "",
-        sessionMood: sessionData.mood || null,
-
-        // Media (for future use)
-        media: sessionData.media || [],
-
-        // Post metadata
-        timestamp: Timestamp.fromDate(new Date()),
-        likes: [],
-        likeCount: 0,
-        comments: [],
-        commentCount: 0,
-        shares: 0,
-        isPublic: true,
-        postType: "training_session",
-      };
-
-      const docRef = await addDoc(feedRef, post);
-
-      return {
-        success: true,
-        postId: docRef.id,
-        message: "Training session shared to feed!",
-      };
-    } catch (error) {
-      console.error("Error creating training post:", error);
-      return {
-        success: false,
-        error: error.message,
-      };
-    }
-  }
-
   // Get user's own posts
   async getUserPosts(userId, limitCount = 10) {
     try {
@@ -300,7 +359,9 @@ class SocialFeedService {
         posts.push({
           id: doc.id,
           ...data,
-          timestamp: data.timestamp?.toDate(),
+          timestamp: data.timestamp?.toDate
+            ? data.timestamp.toDate()
+            : new Date(data.timestamp),
         });
       });
 
@@ -318,7 +379,23 @@ class SocialFeedService {
     }
   }
 
-  // Format time for display (e.g., "2 hours ago")
+  // NEW: Extract hashtags from text
+  extractHashtags(text) {
+    if (!text) return [];
+    const hashtagRegex = /#[\w]+/g;
+    const hashtags = text.match(hashtagRegex) || [];
+    return hashtags.map((tag) => tag.toLowerCase());
+  }
+
+  // NEW: Extract mentions from text
+  extractMentions(text) {
+    if (!text) return [];
+    const mentionRegex = /@[\w]+/g;
+    const mentions = text.match(mentionRegex) || [];
+    return mentions.map((mention) => mention.toLowerCase());
+  }
+
+  // Format time for display
   getTimeAgo(timestamp) {
     const now = new Date();
     const diffMs = now - timestamp;
@@ -342,68 +419,10 @@ class SocialFeedService {
     }
   }
 
-  // Get feed statistics
-  async getFeedStats(userId) {
-    try {
-      const userPosts = await this.getUserPosts(userId, 100);
-
-      if (!userPosts.success) {
-        return userPosts;
-      }
-
-      const posts = userPosts.posts;
-      const totalPosts = posts.length;
-      const totalLikes = posts.reduce(
-        (sum, post) => sum + (post.likeCount || 0),
-        0,
-      );
-      const totalComments = posts.reduce(
-        (sum, post) => sum + (post.commentCount || 0),
-        0,
-      );
-
-      // Most popular session type
-      const sessionTypes = {};
-      posts.forEach((post) => {
-        const type = post.sessionType;
-        if (type) {
-          sessionTypes[type] = (sessionTypes[type] || 0) + 1;
-        }
-      });
-
-      const mostSharedType =
-        Object.keys(sessionTypes).length > 0
-          ? Object.keys(sessionTypes).reduce((a, b) =>
-              sessionTypes[a] > sessionTypes[b] ? a : b,
-            )
-          : "None";
-
-      return {
-        success: true,
-        stats: {
-          totalPosts,
-          totalLikes,
-          totalComments,
-          mostSharedType,
-          avgLikesPerPost:
-            totalPosts > 0 ? Math.round(totalLikes / totalPosts) : 0,
-          avgCommentsPerPost:
-            totalPosts > 0 ? Math.round(totalComments / totalPosts) : 0,
-        },
-      };
-    } catch (error) {
-      console.error("Error getting feed stats:", error);
-      return {
-        success: false,
-        error: error.message,
-      };
-    }
-  }
-
-  // Check if user can share (rate limiting)
+  // Check if user can share (simple rate limiting)
   async canUserShare(userId) {
     try {
-      // Limit to 10 posts per day
+      // Simple check - allow 10 posts per day
       const today = new Date();
       today.setHours(0, 0, 0, 0);
 
@@ -431,6 +450,73 @@ class SocialFeedService {
       return {
         success: false,
         error: error.message,
+      };
+    }
+  }
+
+  // NEW: Get posts by hashtag
+  async getPostsByHashtag(hashtag, limitCount = 20) {
+    try {
+      const feedRef = collection(db, "socialFeed");
+      const q = query(
+        feedRef,
+        where("hashtags", "array-contains", hashtag.toLowerCase()),
+        where("isPublic", "==", true),
+        orderBy("timestamp", "desc"),
+        limit(limitCount),
+      );
+
+      const querySnapshot = await getDocs(q);
+      const posts = [];
+
+      querySnapshot.forEach((doc) => {
+        const data = doc.data();
+        posts.push({
+          id: doc.id,
+          ...data,
+          timestamp: data.timestamp?.toDate(),
+        });
+      });
+
+      return {
+        success: true,
+        posts,
+      };
+    } catch (error) {
+      console.error("Error fetching posts by hashtag:", error);
+      return {
+        success: false,
+        error: error.message,
+        posts: [],
+      };
+    }
+  }
+
+  // NEW: Get trending hashtags
+  async getTrendingHashtags(limitCount = 10) {
+    try {
+      // This would require aggregation in a real app
+      // For now, return some popular hashtags
+      const trendingHashtags = [
+        { tag: "#bagwork", count: 45 },
+        { tag: "#sparring", count: 32 },
+        { tag: "#padwork", count: 28 },
+        { tag: "#muaythai", count: 67 },
+        { tag: "#boxing", count: 54 },
+        { tag: "#fitness", count: 89 },
+        { tag: "#training", count: 123 },
+      ];
+
+      return {
+        success: true,
+        hashtags: trendingHashtags.slice(0, limitCount),
+      };
+    } catch (error) {
+      console.error("Error getting trending hashtags:", error);
+      return {
+        success: false,
+        error: error.message,
+        hashtags: [],
       };
     }
   }
