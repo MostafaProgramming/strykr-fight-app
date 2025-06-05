@@ -1,17 +1,22 @@
-import { initializeApp } from 'firebase/app';
-import { getAuth, initializeAuth, getReactNativePersistence } from 'firebase/auth';
-import { getFirestore } from 'firebase/firestore';
-import { getStorage } from 'firebase/storage';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { initializeApp } from "firebase/app";
+import {
+  getAuth,
+  initializeAuth,
+  getReactNativePersistence,
+} from "firebase/auth";
+import { getFirestore } from "firebase/firestore";
+import { getStorage } from "firebase/storage";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
-// Firebase configuration - REPLACE WITH YOUR ACTUAL VALUES
+// YOUR NEW Firebase configuration - replace with your actual values
 const firebaseConfig = {
-  apiKey: "AIzaSyAkVZqn5pUSqd3clVxm7O2vfSwZ9HXHFaA",
-  authDomain: "limbs-muay-thai.firebaseapp.com",
-  projectId: "limbs-muay-thai",
-  storageBucket: "limbs-muay-thai.firebasestorage.app",
-  messagingSenderId: "618880283240",
-  appId: "1:618880283240:web:068c1b0ca2b576642901dd",
+  apiKey: "AIzaSyDsE73klJi0P1whiO_1IVIPsDGIv13q0xY",
+  authDomain: "fighttracker-app.firebaseapp.com",
+  projectId: "fighttracker-app",
+  storageBucket: "fighttracker-app.firebasestorage.app",
+  messagingSenderId: "938372568113",
+  appId: "1:938372568113:web:df02ce0666398a533c7110",
+  measurementId: "G-CL7KQ15FCQ",
 };
 
 // Initialize Firebase
@@ -27,7 +32,7 @@ try {
   // Initialize Auth with better error handling
   try {
     auth = initializeAuth(app, {
-      persistence: getReactNativePersistence(AsyncStorage)
+      persistence: getReactNativePersistence(AsyncStorage),
     });
   } catch (error) {
     // If already initialized, get the existing instance
@@ -40,9 +45,9 @@ try {
   // Initialize Storage
   storage = getStorage(app);
 
-  console.log('Firebase initialized successfully');
+  console.log("🔥 Firebase initialized successfully for FightTracker!");
 } catch (error) {
-  console.error('Firebase initialization error:', error);
+  console.error("❌ Firebase initialization error:", error);
   // Create fallback objects to prevent crashes
   auth = null;
   db = null;

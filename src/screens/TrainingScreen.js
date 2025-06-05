@@ -6,82 +6,95 @@ import {
   TouchableOpacity,
   FlatList,
   RefreshControl,
+  Alert,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { colors } from "../constants/colors";
 import { screenStyles } from "../styles/screenStyles";
+import trainingService from "../services/trainingService";
+import achievementsService from "../services/achievementsService";
 
 const TrainingScreen = ({ member, onNavigate }) => {
   const [selectedView, setSelectedView] = useState("list");
   const [trainingSessions, setTrainingSessions] = useState([]);
   const [refreshing, setRefreshing] = useState(false);
   const [selectedFilter, setSelectedFilter] = useState("all");
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Mock training sessions data
-    setTrainingSessions([
-      {
-        id: 1,
-        type: "Bag Work",
-        rounds: 6,
-        intensity: 8,
-        duration: 30,
-        date: "2025-06-03",
-        time: "18:00",
-        notes: "Focused on combinations",
-        calories: 280,
-      },
-      {
-        id: 2,
-        type: "Sparring",
-        rounds: 5,
-        intensity: 9,
-        duration: 25,
-        date: "2025-06-02",
-        time: "19:30",
-        notes: "Good defensive work",
-        calories: 350,
-      },
-      {
-        id: 3,
-        type: "Pad Work",
-        rounds: 8,
-        intensity: 7,
-        duration: 40,
-        date: "2025-06-01",
-        time: "17:00",
-        notes: "Working on timing",
-        calories: 320,
-      },
-      {
-        id: 4,
-        type: "Strength",
-        rounds: 0,
-        intensity: 6,
-        duration: 45,
-        date: "2025-05-31",
-        time: "16:00",
-        notes: "Core and conditioning",
-        calories: 200,
-      },
-      {
-        id: 5,
-        type: "Drills",
-        rounds: 10,
-        intensity: 5,
-        duration: 35,
-        date: "2025-05-30",
-        time: "18:30",
-        notes: "Footwork and movement",
-        calories: 250,
-      },
-    ]);
+    loadTrainingSessions();
   }, []);
 
-  const onRefresh = React.useCallback(() => {
+  const loadTrainingSessions = async () => {
+    try {
+      setLoading(true);
+      const result = await trainingService.getUserTrainingSessions(member.uid);
+
+      if (result.success) {
+        setTrainingSessions(result.sessions);
+      } else {
+        Alert.alert("Error", "Failed to load training sessions");
+      }
+    } catch (error) {
+      console.error("Error loading sessions:", error);
+      Alert.alert("Error", "Something went wrong loading your training data");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const onRefresh = React.useCallback(async () => {
     setRefreshing(true);
-    setTimeout(() => setRefreshing(false), 1000);
+    await loadTrainingSessions();
+    setRefreshing(false);
   }, []);
+
+  const handleSessionPress = (session) => {
+    // Navigate to session detail view (to be implemented)
+    Alert.alert(
+      session.type,
+      `${session.duration} minutes • RPE ${session.intensity}${session.notes ? "\n\n" + session.notes : ""}`,
+      [
+        { text: "Edit", onPress: () => editSession(session) },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: () => deleteSession(session),
+        },
+        { text: "Cancel", style: "cancel" },
+      ],
+    );
+  };
+
+  const editSession = (session) => {
+    // TODO: Navigate to edit session screen
+    Alert.alert("Coming Soon", "Session editing will be available soon!");
+  };
+
+  const deleteSession = async (session) => {
+    Alert.alert(
+      "Delete Session",
+      "Are you sure you want to delete this training session?",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: async () => {
+            const result = await trainingService.deleteTrainingSession(
+              session.id,
+            );
+            if (result.success) {
+              Alert.alert("Success", "Session deleted successfully");
+              loadTrainingSessions(); // Refresh the list
+            } else {
+              Alert.alert("Error", "Failed to delete session");
+            }
+          },
+        },
+      ],
+    );
+  };
 
   const getTrainingTypeColor = (type) => {
     switch (type.toLowerCase()) {
@@ -135,7 +148,10 @@ const TrainingScreen = ({ member, onNavigate }) => {
   };
 
   const TrainingCard = ({ session }) => (
-    <TouchableOpacity style={styles.sessionCard}>
+    <TouchableOpacity
+      style={styles.sessionCard}
+      onPress={() => handleSessionPress(session)}
+    >
       <View style={styles.sessionHeader}>
         <View
           style={[
@@ -196,8 +212,39 @@ const TrainingScreen = ({ member, onNavigate }) => {
       {session.notes && (
         <Text style={styles.sessionNotes}>{session.notes}</Text>
       )}
+
+      {/* New indicators */}
+      <View style={styles.sessionFooter}>
+        <Text style={styles.sessionAge}>
+          {new Date(session.createdAt).toLocaleDateString()}
+        </Text>
+        <TouchableOpacity
+          style={styles.shareButton}
+          onPress={() => shareToFeed(session)}
+        >
+          <Ionicons name="share-outline" size={16} color={colors.primary} />
+          <Text style={styles.shareText}>Share</Text>
+        </TouchableOpacity>
+      </View>
     </TouchableOpacity>
   );
+
+  const shareToFeed = async (session) => {
+    // TODO: Implement sharing to social feed
+    Alert.alert("Share to Feed", "Share this session with the community?", [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Share",
+        onPress: () => {
+          // Implement feed sharing
+          Alert.alert(
+            "Shared!",
+            "Your training session has been shared to the community feed.",
+          );
+        },
+      },
+    ]);
+  };
 
   const filters = [
     { id: "all", label: "All", icon: "list" },
@@ -207,6 +254,17 @@ const TrainingScreen = ({ member, onNavigate }) => {
     { id: "drills", label: "Drills", icon: "repeat" },
     { id: "strength", label: "Strength", icon: "barbell-outline" },
   ];
+
+  if (loading) {
+    return (
+      <View style={screenStyles.centerContent}>
+        <Ionicons name="fitness" size={48} color={colors.primary} />
+        <Text style={styles.loadingText}>
+          Loading your training sessions...
+        </Text>
+      </View>
+    );
+  }
 
   return (
     <View style={screenStyles.container}>
@@ -247,7 +305,7 @@ const TrainingScreen = ({ member, onNavigate }) => {
         </TouchableOpacity>
       </View>
 
-      {/* Quick Stats */}
+      {/* Quick Stats - Now with real data */}
       <View style={styles.quickStatsContainer}>
         <View style={styles.quickStat}>
           <Text style={styles.quickStatNumber}>{trainingSessions.length}</Text>
@@ -261,20 +319,23 @@ const TrainingScreen = ({ member, onNavigate }) => {
         </View>
         <View style={styles.quickStat}>
           <Text style={styles.quickStatNumber}>
-            {Math.round(
-              trainingSessions.reduce((sum, s) => sum + s.intensity, 0) /
-                trainingSessions.length,
-            )}
+            {trainingSessions.length > 0
+              ? Math.round(
+                  trainingSessions.reduce((sum, s) => sum + s.intensity, 0) /
+                    trainingSessions.length,
+                )
+              : 0}
           </Text>
           <Text style={styles.quickStatLabel}>Avg Intensity</Text>
         </View>
       </View>
 
-      {/* Filters */}
+      {/* Filters - FIXED */}
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
         style={styles.filtersContainer}
+        contentContainerStyle={styles.filtersContentContainer}
       >
         {filters.map((filter) => (
           <TouchableOpacity
@@ -299,6 +360,7 @@ const TrainingScreen = ({ member, onNavigate }) => {
                 styles.filterText,
                 selectedFilter === filter.id && styles.activeFilterText,
               ]}
+              numberOfLines={1}
             >
               {filter.label}
             </Text>
@@ -354,6 +416,11 @@ const TrainingScreen = ({ member, onNavigate }) => {
 };
 
 const styles = {
+  loadingText: {
+    fontSize: 16,
+    color: colors.textSecondary,
+    marginTop: 15,
+  },
   quickStatsContainer: {
     flexDirection: "row",
     justifyContent: "space-around",
@@ -379,9 +446,16 @@ const styles = {
     color: colors.textSecondary,
     textAlign: "center",
   },
+  // FIXED FILTER STYLES
   filtersContainer: {
     paddingHorizontal: 20,
     marginBottom: 20,
+    minHeight: 65,
+  },
+  filtersContentContainer: {
+    paddingHorizontal: 4,
+    alignItems: "center",
+    paddingVertical: 5,
   },
   filterButton: {
     flexDirection: "row",
@@ -389,11 +463,13 @@ const styles = {
     backgroundColor: colors.cardBackground,
     borderRadius: 20,
     paddingHorizontal: 16,
-    paddingVertical: 8,
-    marginRight: 10,
+    paddingVertical: 12,
+    marginRight: 12,
     borderWidth: 1,
     borderColor: colors.cardBorder,
     gap: 6,
+    minWidth: 85,
+    justifyContent: "center",
   },
   activeFilterButton: {
     backgroundColor: colors.primary,
@@ -403,6 +479,7 @@ const styles = {
     color: colors.textSecondary,
     fontSize: 14,
     fontWeight: "500",
+    textAlign: "center",
   },
   activeFilterText: {
     color: colors.text,
@@ -475,6 +552,33 @@ const styles = {
     paddingTop: 10,
     borderTopWidth: 1,
     borderTopColor: colors.cardBorder,
+  },
+  sessionFooter: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginTop: 10,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: colors.cardBorder,
+  },
+  sessionAge: {
+    fontSize: 12,
+    color: colors.textSecondary,
+  },
+  shareButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    backgroundColor: colors.primary + "20",
+    borderRadius: 12,
+  },
+  shareText: {
+    fontSize: 12,
+    color: colors.primary,
+    fontWeight: "500",
   },
   fab: {
     position: "absolute",

@@ -6,10 +6,13 @@ import {
   TouchableOpacity,
   TextInput,
   Alert,
+  Modal,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { colors } from "../constants/colors";
 import { screenStyles } from "../styles/screenStyles";
+import trainingService from "../services/trainingService";
+import achievementsService from "../services/achievementsService";
 
 const LogTrainingScreen = ({ member, onBack }) => {
   const [selectedType, setSelectedType] = useState("bag work");
@@ -18,6 +21,7 @@ const LogTrainingScreen = ({ member, onBack }) => {
   const [intensity, setIntensity] = useState(7);
   const [notes, setNotes] = useState("");
   const [isLogging, setIsLogging] = useState(false);
+  const [achievementModal, setAchievementModal] = useState(null);
 
   const trainingTypes = [
     {
@@ -81,33 +85,105 @@ const LogTrainingScreen = ({ member, onBack }) => {
 
     setIsLogging(true);
 
-    // Simulate API call
-    setTimeout(() => {
+    try {
+      // Log the training session
+      const sessionData = {
+        type: selectedType,
+        duration: parseInt(duration),
+        rounds:
+          selectedType !== "recovery" && selectedType !== "strength"
+            ? parseInt(rounds) || 0
+            : 0,
+        intensity: parseInt(intensity),
+        notes: notes.trim(),
+        userId: member.uid,
+        date: new Date().toISOString().split("T")[0],
+        time: new Date().toLocaleTimeString("en-US", {
+          hour: "2-digit",
+          minute: "2-digit",
+        }),
+      };
+
+      const result = await trainingService.addTrainingSession(sessionData);
+
+      if (result.success) {
+        // Get updated training stats for achievement checking
+        const statsResult = await trainingService.getTrainingStats(member.uid);
+
+        if (statsResult.success) {
+          // Check for new achievements
+          const achievementResult =
+            await achievementsService.checkAndAwardAchievements(
+              member.uid,
+              statsResult.stats,
+            );
+
+          if (
+            achievementResult.success &&
+            achievementResult.newAchievements.length > 0
+          ) {
+            // Show achievement modal
+            setAchievementModal(achievementResult.newAchievements[0]);
+          }
+        }
+
+        Alert.alert(
+          "Session Logged! 🥊",
+          `Your ${selectedType} session has been recorded successfully.`,
+          [
+            {
+              text: "View Progress",
+              onPress: () => onBack(),
+            },
+            {
+              text: "Log Another",
+              onPress: () => resetForm(),
+            },
+          ],
+        );
+      } else {
+        Alert.alert("Error", result.error || "Failed to log session");
+      }
+    } catch (error) {
+      console.error("Error logging session:", error);
+      Alert.alert("Error", "Something went wrong. Please try again.");
+    } finally {
       setIsLogging(false);
-      Alert.alert(
-        "Session Logged! 🥊",
-        `Your ${selectedType} session has been recorded successfully.`,
-        [
-          {
-            text: "View Progress",
-            onPress: () => {
-              // Navigate to progress or training screen
-              onBack();
-            },
-          },
-          {
-            text: "Log Another",
-            onPress: () => {
-              // Reset form
-              setDuration("30");
-              setRounds("6");
-              setIntensity(7);
-              setNotes("");
-            },
-          },
-        ],
-      );
-    }, 1500);
+    }
+  };
+
+  const resetForm = () => {
+    setDuration("30");
+    setRounds("6");
+    setIntensity(7);
+    setNotes("");
+  };
+
+  const handleQuickLog = async (type, defaultDuration, defaultIntensity) => {
+    const quickSessionData = {
+      type: type,
+      duration: defaultDuration,
+      rounds: type === "sparring" ? 5 : type === "bag work" ? 6 : 0,
+      intensity: defaultIntensity,
+      notes: `Quick ${type} session`,
+      userId: member.uid,
+      date: new Date().toISOString().split("T")[0],
+      time: new Date().toLocaleTimeString("en-US", {
+        hour: "2-digit",
+        minute: "2-digit",
+      }),
+    };
+
+    setIsLogging(true);
+    const result = await trainingService.addTrainingSession(quickSessionData);
+    setIsLogging(false);
+
+    if (result.success) {
+      Alert.alert("Quick Log Success! 🥊", `${type} session logged!`);
+      onBack();
+    } else {
+      Alert.alert("Error", "Failed to log quick session");
+    }
   };
 
   const TrainingTypeButton = ({ type }) => (
@@ -134,6 +210,48 @@ const LogTrainingScreen = ({ member, onBack }) => {
     </TouchableOpacity>
   );
 
+  const AchievementModal = ({ achievement, visible, onClose }) => (
+    <Modal
+      visible={visible}
+      transparent
+      animationType="fade"
+      onRequestClose={onClose}
+    >
+      <View style={styles.modalOverlay}>
+        <View style={styles.achievementModalContainer}>
+          <View style={styles.achievementModalContent}>
+            <View style={styles.achievementModalIcon}>
+              <Ionicons name="trophy" size={48} color={colors.secondary} />
+            </View>
+
+            <Text style={styles.achievementModalTitle}>
+              Achievement Unlocked!
+            </Text>
+            <Text style={styles.achievementModalName}>
+              {achievement?.title}
+            </Text>
+            <Text style={styles.achievementModalDesc}>
+              {achievement?.description}
+            </Text>
+
+            <View style={styles.achievementModalPoints}>
+              <Text style={styles.pointsText}>
+                +{achievement?.points} points
+              </Text>
+            </View>
+
+            <TouchableOpacity
+              style={styles.achievementModalButton}
+              onPress={onClose}
+            >
+              <Text style={styles.achievementModalButtonText}>Awesome!</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    </Modal>
+  );
+
   return (
     <View style={screenStyles.container}>
       {/* Header */}
@@ -149,9 +267,52 @@ const LogTrainingScreen = ({ member, onBack }) => {
         style={screenStyles.content}
         showsVerticalScrollIndicator={false}
       >
+        {/* Quick Log Options */}
+        <View style={screenStyles.section}>
+          <Text style={screenStyles.sectionTitle}>Quick Log</Text>
+          <View style={styles.quickLogContainer}>
+            <TouchableOpacity
+              style={styles.quickLogButton}
+              onPress={() => handleQuickLog("bag work", 30, 7)}
+              disabled={isLogging}
+            >
+              <Ionicons name="fitness" size={20} color={colors.bagWork} />
+              <Text style={styles.quickLogText}>30min Bag Work</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.quickLogButton}
+              onPress={() => handleQuickLog("sparring", 25, 9)}
+              disabled={isLogging}
+            >
+              <Ionicons name="people" size={20} color={colors.sparring} />
+              <Text style={styles.quickLogText}>25min Sparring</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.quickLogButton}
+              onPress={() => handleQuickLog("pad work", 40, 8)}
+              disabled={isLogging}
+            >
+              <Ionicons
+                name="hand-left-outline"
+                size={20}
+                color={colors.padWork}
+              />
+              <Text style={styles.quickLogText}>40min Pads</Text>
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.divider}>
+            <View style={styles.dividerLine} />
+            <Text style={styles.dividerText}>OR</Text>
+            <View style={styles.dividerLine} />
+          </View>
+        </View>
+
         {/* Training Type Selection */}
         <View style={screenStyles.section}>
-          <Text style={screenStyles.sectionTitle}>Training Type</Text>
+          <Text style={screenStyles.sectionTitle}>Custom Training Session</Text>
           <View style={styles.typeGrid}>
             {trainingTypes.map((type) => (
               <TrainingTypeButton key={type.id} type={type} />
@@ -362,11 +523,56 @@ const LogTrainingScreen = ({ member, onBack }) => {
           </Text>
         </TouchableOpacity>
       </ScrollView>
+
+      {/* Achievement Modal */}
+      <AchievementModal
+        achievement={achievementModal}
+        visible={!!achievementModal}
+        onClose={() => setAchievementModal(null)}
+      />
     </View>
   );
 };
 
 const styles = {
+  quickLogContainer: {
+    flexDirection: "row",
+    gap: 10,
+    marginBottom: 20,
+  },
+  quickLogButton: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: colors.cardBackground,
+    borderRadius: 12,
+    padding: 15,
+    borderWidth: 1,
+    borderColor: colors.cardBorder,
+    gap: 8,
+  },
+  quickLogText: {
+    fontSize: 12,
+    color: colors.text,
+    fontWeight: "500",
+  },
+  divider: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginVertical: 20,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: colors.cardBorder,
+  },
+  dividerText: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    paddingHorizontal: 15,
+    fontWeight: "500",
+  },
   typeGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
@@ -445,11 +651,6 @@ const styles = {
     fontSize: 16,
     fontWeight: "500",
     marginTop: 5,
-  },
-  slider: {
-    width: "100%",
-    height: 40,
-    marginBottom: 15,
   },
   intensitySelector: {
     flexDirection: "row",
@@ -568,6 +769,82 @@ const styles = {
     paddingTop: 10,
     borderTopWidth: 1,
     borderTopColor: colors.cardBorder,
+  },
+  // Achievement Modal Styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.8)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 20,
+  },
+  achievementModalContainer: {
+    backgroundColor: colors.cardBackground,
+    borderRadius: 20,
+    padding: 30,
+    alignItems: "center",
+    borderWidth: 2,
+    borderColor: colors.secondary,
+    maxWidth: 300,
+    width: "100%",
+  },
+  achievementModalContent: {
+    alignItems: "center",
+  },
+  achievementModalIcon: {
+    width: 80,
+    height: 80,
+    backgroundColor: colors.secondary + "20",
+    borderRadius: 40,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 20,
+  },
+  achievementModalTitle: {
+    fontSize: 20,
+    fontWeight: "bold",
+    color: colors.secondary,
+    marginBottom: 10,
+    textAlign: "center",
+  },
+  achievementModalName: {
+    fontSize: 18,
+    fontWeight: "bold",
+    color: colors.text,
+    marginBottom: 8,
+    textAlign: "center",
+  },
+  achievementModalDesc: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    textAlign: "center",
+    lineHeight: 20,
+    marginBottom: 20,
+  },
+  achievementModalPoints: {
+    backgroundColor: colors.secondary + "20",
+    paddingHorizontal: 15,
+    paddingVertical: 8,
+    borderRadius: 20,
+    marginBottom: 25,
+  },
+  pointsText: {
+    fontSize: 16,
+    fontWeight: "bold",
+    color: colors.secondary,
+  },
+  achievementModalButton: {
+    backgroundColor: colors.primary,
+    paddingHorizontal: 30,
+    paddingVertical: 12,
+    borderRadius: 25,
+    minWidth: 120,
+  },
+  achievementModalButtonText: {
+    color: colors.text,
+    fontSize: 16,
+    fontWeight: "bold",
+    textAlign: "center",
   },
 };
 
