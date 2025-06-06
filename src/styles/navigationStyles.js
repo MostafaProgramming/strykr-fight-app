@@ -1,20 +1,20 @@
-import { StyleSheet } from 'react-native';
-import { colors } from '../constants/colors';
+import { StyleSheet } from "react-native";
+import { colors } from "../constants/colors";
 
 export const navigationStyles = StyleSheet.create({
   // Header Styles
   header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     paddingHorizontal: 20,
     paddingVertical: 15,
     borderBottomWidth: 1,
     borderBottomColor: colors.cardBorder,
   },
   headerBrand: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 12,
   },
   headerLogo: {
@@ -23,7 +23,7 @@ export const navigationStyles = StyleSheet.create({
   },
   headerTitle: {
     fontSize: 18,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     color: colors.text,
   },
   headerSubtitle: {
@@ -31,6 +31,19 @@ export const navigationStyles = StyleSheet.create({
     color: colors.textSecondary,
     marginTop: 2,
   },
+
+  // NEW: Header Actions
+  headerActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  headerActionButton: {
+    padding: 8,
+    backgroundColor: colors.backgroundLight,
+    borderRadius: 20,
+  },
+
   profileButton: {
     padding: 5,
   },
@@ -39,12 +52,12 @@ export const navigationStyles = StyleSheet.create({
     height: 32,
     backgroundColor: colors.primary,
     borderRadius: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
   avatarTextSmall: {
     color: colors.text,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     fontSize: 12,
   },
   backButton: {
@@ -54,7 +67,7 @@ export const navigationStyles = StyleSheet.create({
 
   // Bottom Navigation
   bottomNav: {
-    flexDirection: 'row',
+    flexDirection: "row",
     backgroundColor: colors.backgroundLight,
     borderTopWidth: 1,
     borderTopColor: colors.cardBorder,
@@ -63,7 +76,7 @@ export const navigationStyles = StyleSheet.create({
   },
   navTab: {
     flex: 1,
-    alignItems: 'center',
+    alignItems: "center",
     paddingVertical: 8,
     borderRadius: 12,
   },
@@ -73,6 +86,6 @@ export const navigationStyles = StyleSheet.create({
   navLabel: {
     fontSize: 11,
     marginTop: 4,
-    fontWeight: '500',
+    fontWeight: "500",
   },
 });

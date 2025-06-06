@@ -1,4 +1,4 @@
-// src/services/mediaService.js
+// src/services/mediaService.js - FIXED PERMISSION HANDLING
 import {
   ref,
   uploadBytes,
@@ -18,40 +18,49 @@ class MediaService {
     this.allowedVideoTypes = ["video/mp4", "video/mov"];
   }
 
-  // Request camera and media library permissions
+  // IMPROVED: More reliable permission checking
   async requestPermissions() {
     try {
+      console.log("Requesting permissions...");
+
       const cameraPermission =
         await ImagePicker.requestCameraPermissionsAsync();
       const mediaPermission =
         await ImagePicker.requestMediaLibraryPermissionsAsync();
 
+      console.log("Camera permission:", cameraPermission.status);
+      console.log("Media permission:", mediaPermission.status);
+
       return {
         success: true,
         hasCamera: cameraPermission.status === "granted",
         hasMediaLibrary: mediaPermission.status === "granted",
+        cameraStatus: cameraPermission.status,
+        mediaStatus: mediaPermission.status,
       };
     } catch (error) {
       console.error("Error requesting permissions:", error);
       return {
         success: false,
         error: error.message,
+        hasCamera: false,
+        hasMediaLibrary: false,
       };
     }
   }
 
-  // Show image picker options
+  // FIXED: Better permission handling for image picker
   async pickImage(allowsEditing = true) {
     try {
-      const permissions = await this.requestPermissions();
+      console.log("Starting image picker...");
 
-      if (!permissions.hasMediaLibrary && !permissions.hasCamera) {
-        Alert.alert(
-          "Permissions Required",
-          "Please enable camera and photo library permissions in your device settings to upload photos.",
-        );
-        return { success: false, error: "Permissions not granted" };
-      }
+      // First check current permissions
+      const cameraPermission = await ImagePicker.getCameraPermissionsAsync();
+      const mediaPermission =
+        await ImagePicker.getMediaLibraryPermissionsAsync();
+
+      console.log("Current camera permission:", cameraPermission.status);
+      console.log("Current media permission:", mediaPermission.status);
 
       return new Promise((resolve) => {
         Alert.alert(
@@ -61,52 +70,124 @@ class MediaService {
             {
               text: "Camera",
               onPress: async () => {
-                if (!permissions.hasCamera) {
-                  Alert.alert("Error", "Camera permission not granted");
-                  resolve({
-                    success: false,
-                    error: "Camera permission denied",
+                try {
+                  console.log("Camera option selected");
+
+                  // Request camera permission if needed
+                  let permission =
+                    await ImagePicker.getCameraPermissionsAsync();
+                  if (permission.status !== "granted") {
+                    console.log("Requesting camera permission...");
+                    permission =
+                      await ImagePicker.requestCameraPermissionsAsync();
+                  }
+
+                  if (permission.status !== "granted") {
+                    Alert.alert(
+                      "Camera Permission Required",
+                      "Please enable camera access in your device settings to take photos.",
+                      [
+                        { text: "Cancel", style: "cancel" },
+                        {
+                          text: "Settings",
+                          onPress: () => {
+                            // In a real app, you'd open device settings
+                            console.log("Open settings");
+                          },
+                        },
+                      ],
+                    );
+                    resolve({
+                      success: false,
+                      error: "Camera permission denied",
+                    });
+                    return;
+                  }
+
+                  console.log("Launching camera...");
+                  const result = await ImagePicker.launchCameraAsync({
+                    mediaTypes: ImagePicker.MediaTypeOptions.Images,
+                    allowsEditing,
+                    aspect: [4, 3],
+                    quality: 0.8,
                   });
-                  return;
-                }
 
-                const result = await ImagePicker.launchCameraAsync({
-                  mediaTypes: ImagePicker.MediaTypeOptions.Images,
-                  allowsEditing,
-                  aspect: [4, 3],
-                  quality: 0.8,
-                });
+                  console.log("Camera result:", result);
 
-                if (!result.canceled) {
-                  resolve({ success: true, image: result.assets[0] });
-                } else {
-                  resolve({ success: false, error: "Cancelled" });
+                  if (
+                    !result.canceled &&
+                    result.assets &&
+                    result.assets.length > 0
+                  ) {
+                    resolve({ success: true, image: result.assets[0] });
+                  } else {
+                    resolve({ success: false, error: "Cancelled" });
+                  }
+                } catch (error) {
+                  console.error("Camera error:", error);
+                  resolve({ success: false, error: error.message });
                 }
               },
             },
             {
               text: "Photo Library",
               onPress: async () => {
-                if (!permissions.hasMediaLibrary) {
-                  Alert.alert("Error", "Photo library permission not granted");
-                  resolve({
-                    success: false,
-                    error: "Photo library permission denied",
+                try {
+                  console.log("Photo library option selected");
+
+                  // Request media library permission if needed
+                  let permission =
+                    await ImagePicker.getMediaLibraryPermissionsAsync();
+                  if (permission.status !== "granted") {
+                    console.log("Requesting media library permission...");
+                    permission =
+                      await ImagePicker.requestMediaLibraryPermissionsAsync();
+                  }
+
+                  if (permission.status !== "granted") {
+                    Alert.alert(
+                      "Photo Library Permission Required",
+                      "Please enable photo library access in your device settings to select photos.",
+                      [
+                        { text: "Cancel", style: "cancel" },
+                        {
+                          text: "Settings",
+                          onPress: () => {
+                            // In a real app, you'd open device settings
+                            console.log("Open settings");
+                          },
+                        },
+                      ],
+                    );
+                    resolve({
+                      success: false,
+                      error: "Photo library permission denied",
+                    });
+                    return;
+                  }
+
+                  console.log("Launching image library...");
+                  const result = await ImagePicker.launchImageLibraryAsync({
+                    mediaTypes: ImagePicker.MediaTypeOptions.Images,
+                    allowsEditing,
+                    aspect: [4, 3],
+                    quality: 0.8,
                   });
-                  return;
-                }
 
-                const result = await ImagePicker.launchImageLibraryAsync({
-                  mediaTypes: ImagePicker.MediaTypeOptions.Images,
-                  allowsEditing,
-                  aspect: [4, 3],
-                  quality: 0.8,
-                });
+                  console.log("Library result:", result);
 
-                if (!result.canceled) {
-                  resolve({ success: true, image: result.assets[0] });
-                } else {
-                  resolve({ success: false, error: "Cancelled" });
+                  if (
+                    !result.canceled &&
+                    result.assets &&
+                    result.assets.length > 0
+                  ) {
+                    resolve({ success: true, image: result.assets[0] });
+                  } else {
+                    resolve({ success: false, error: "Cancelled" });
+                  }
+                } catch (error) {
+                  console.error("Library error:", error);
+                  resolve({ success: false, error: error.message });
                 }
               },
             },
@@ -116,11 +197,14 @@ class MediaService {
               onPress: () => resolve({ success: false, error: "Cancelled" }),
             },
           ],
-          { cancelable: true },
+          {
+            cancelable: true,
+            onDismiss: () => resolve({ success: false, error: "Cancelled" }),
+          },
         );
       });
     } catch (error) {
-      console.error("Error picking image:", error);
+      console.error("Error in pickImage:", error);
       return {
         success: false,
         error: error.message,
@@ -128,18 +212,10 @@ class MediaService {
     }
   }
 
-  // Show video picker options
+  // FIXED: Better permission handling for video picker
   async pickVideo() {
     try {
-      const permissions = await this.requestPermissions();
-
-      if (!permissions.hasMediaLibrary && !permissions.hasCamera) {
-        Alert.alert(
-          "Permissions Required",
-          "Please enable camera and photo library permissions in your device settings.",
-        );
-        return { success: false, error: "Permissions not granted" };
-      }
+      console.log("Starting video picker...");
 
       return new Promise((resolve) => {
         Alert.alert(
@@ -149,52 +225,96 @@ class MediaService {
             {
               text: "Record Video",
               onPress: async () => {
-                if (!permissions.hasCamera) {
-                  Alert.alert("Error", "Camera permission not granted");
-                  resolve({
-                    success: false,
-                    error: "Camera permission denied",
+                try {
+                  console.log("Record video option selected");
+
+                  // Request camera permission
+                  let permission =
+                    await ImagePicker.getCameraPermissionsAsync();
+                  if (permission.status !== "granted") {
+                    permission =
+                      await ImagePicker.requestCameraPermissionsAsync();
+                  }
+
+                  if (permission.status !== "granted") {
+                    Alert.alert(
+                      "Error",
+                      "Camera permission is required to record videos",
+                    );
+                    resolve({
+                      success: false,
+                      error: "Camera permission denied",
+                    });
+                    return;
+                  }
+
+                  const result = await ImagePicker.launchCameraAsync({
+                    mediaTypes: ImagePicker.MediaTypeOptions.Videos,
+                    allowsEditing: true,
+                    videoMaxDuration: 30,
+                    videoQuality: ImagePicker.VideoQuality.Medium,
                   });
-                  return;
-                }
 
-                const result = await ImagePicker.launchCameraAsync({
-                  mediaTypes: ImagePicker.MediaTypeOptions.Videos,
-                  allowsEditing: true,
-                  videoMaxDuration: 30, // 30 seconds max
-                  videoQuality: ImagePicker.VideoQuality.Medium,
-                });
-
-                if (!result.canceled) {
-                  resolve({ success: true, video: result.assets[0] });
-                } else {
-                  resolve({ success: false, error: "Cancelled" });
+                  if (
+                    !result.canceled &&
+                    result.assets &&
+                    result.assets.length > 0
+                  ) {
+                    resolve({ success: true, video: result.assets[0] });
+                  } else {
+                    resolve({ success: false, error: "Cancelled" });
+                  }
+                } catch (error) {
+                  console.error("Record video error:", error);
+                  resolve({ success: false, error: error.message });
                 }
               },
             },
             {
               text: "Video Library",
               onPress: async () => {
-                if (!permissions.hasMediaLibrary) {
-                  Alert.alert("Error", "Photo library permission not granted");
-                  resolve({
-                    success: false,
-                    error: "Photo library permission denied",
+                try {
+                  console.log("Video library option selected");
+
+                  // Request media library permission
+                  let permission =
+                    await ImagePicker.getMediaLibraryPermissionsAsync();
+                  if (permission.status !== "granted") {
+                    permission =
+                      await ImagePicker.requestMediaLibraryPermissionsAsync();
+                  }
+
+                  if (permission.status !== "granted") {
+                    Alert.alert(
+                      "Error",
+                      "Photo library permission is required to select videos",
+                    );
+                    resolve({
+                      success: false,
+                      error: "Media library permission denied",
+                    });
+                    return;
+                  }
+
+                  const result = await ImagePicker.launchImageLibraryAsync({
+                    mediaTypes: ImagePicker.MediaTypeOptions.Videos,
+                    allowsEditing: true,
+                    videoMaxDuration: 30,
+                    videoQuality: ImagePicker.VideoQuality.Medium,
                   });
-                  return;
-                }
 
-                const result = await ImagePicker.launchImageLibraryAsync({
-                  mediaTypes: ImagePicker.MediaTypeOptions.Videos,
-                  allowsEditing: true,
-                  videoMaxDuration: 30,
-                  videoQuality: ImagePicker.VideoQuality.Medium,
-                });
-
-                if (!result.canceled) {
-                  resolve({ success: true, video: result.assets[0] });
-                } else {
-                  resolve({ success: false, error: "Cancelled" });
+                  if (
+                    !result.canceled &&
+                    result.assets &&
+                    result.assets.length > 0
+                  ) {
+                    resolve({ success: true, video: result.assets[0] });
+                  } else {
+                    resolve({ success: false, error: "Cancelled" });
+                  }
+                } catch (error) {
+                  console.error("Video library error:", error);
+                  resolve({ success: false, error: error.message });
                 }
               },
             },
@@ -208,11 +328,56 @@ class MediaService {
         );
       });
     } catch (error) {
-      console.error("Error picking video:", error);
+      console.error("Error in pickVideo:", error);
       return {
         success: false,
         error: error.message,
       };
+    }
+  }
+
+  // SIMPLIFIED: Direct picker methods without permission pre-checks
+  async pickImageDirect(allowsEditing = true) {
+    try {
+      console.log("Direct image picker");
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing,
+        aspect: [4, 3],
+        quality: 0.8,
+      });
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        return { success: true, image: result.assets[0] };
+      } else {
+        return { success: false, error: "Cancelled" };
+      }
+    } catch (error) {
+      console.error("Direct image picker error:", error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  async takeCameraDirect(allowsEditing = true) {
+    try {
+      console.log("Direct camera");
+
+      const result = await ImagePicker.launchCameraAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing,
+        aspect: [4, 3],
+        quality: 0.8,
+      });
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        return { success: true, image: result.assets[0] };
+      } else {
+        return { success: false, error: "Cancelled" };
+      }
+    } catch (error) {
+      console.error("Direct camera error:", error);
+      return { success: false, error: error.message };
     }
   }
 
@@ -365,79 +530,6 @@ class MediaService {
       };
     } catch (error) {
       console.error("Error removing media from session:", error);
-      return {
-        success: false,
-        error: error.message,
-      };
-    }
-  }
-
-  // Complete flow: Pick and upload media for a session
-  async addMediaToTrainingSession(sessionId, userId, mediaType = "image") {
-    try {
-      let pickerResult;
-
-      if (mediaType === "image") {
-        pickerResult = await this.pickImage();
-      } else if (mediaType === "video") {
-        pickerResult = await this.pickVideo();
-      } else {
-        return {
-          success: false,
-          error: "Invalid media type",
-        };
-      }
-
-      if (!pickerResult.success) {
-        return pickerResult;
-      }
-
-      const fileUri = pickerResult.image?.uri || pickerResult.video?.uri;
-      const fileType =
-        pickerResult.image?.type ||
-        pickerResult.video?.type ||
-        (mediaType === "image" ? "image/jpeg" : "video/mp4");
-
-      // Upload the file
-      const uploadResult = await this.uploadFile(
-        fileUri,
-        userId,
-        sessionId,
-        fileType,
-      );
-
-      if (!uploadResult.success) {
-        return uploadResult;
-      }
-
-      // Create media data object
-      const mediaData = {
-        id: Date.now().toString(),
-        type: mediaType,
-        downloadURL: uploadResult.downloadURL,
-        fileName: uploadResult.fileName,
-        fileType: uploadResult.fileType,
-        fileSize: uploadResult.fileSize,
-        uploadedAt: new Date(),
-        uploadedBy: userId,
-      };
-
-      // Add to session
-      const sessionResult = await this.addMediaToSession(sessionId, mediaData);
-
-      if (!sessionResult.success) {
-        // If adding to session fails, delete the uploaded file
-        await this.deleteFile(uploadResult.fileName);
-        return sessionResult;
-      }
-
-      return {
-        success: true,
-        mediaData,
-        message: `${mediaType === "image" ? "Photo" : "Video"} added successfully!`,
-      };
-    } catch (error) {
-      console.error("Error in complete media flow:", error);
       return {
         success: false,
         error: error.message,

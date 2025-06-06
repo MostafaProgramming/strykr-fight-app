@@ -91,28 +91,8 @@ const LogTrainingScreen = ({ member, onBack }) => {
     return colors.intensityMax;
   };
 
-  // NEW: Request camera/media permissions
-  const requestPermissions = async () => {
-    const { status: cameraStatus } =
-      await ImagePicker.requestCameraPermissionsAsync();
-    const { status: mediaStatus } =
-      await ImagePicker.requestMediaLibraryPermissionsAsync();
-
-    if (cameraStatus !== "granted" || mediaStatus !== "granted") {
-      Alert.alert(
-        "Permissions Required",
-        "Please enable camera and photo library permissions to add photos and videos to your training posts.",
-      );
-      return false;
-    }
-    return true;
-  };
-
-  // NEW: Add photo from camera or library
+  // SIMPLIFIED: Basic ImagePicker without MediaTypeOptions
   const addPhoto = async () => {
-    const hasPermissions = await requestPermissions();
-    if (!hasPermissions) return;
-
     Alert.alert(
       "Add Photo",
       "Choose how you'd like to add a photo to your training session",
@@ -120,42 +100,72 @@ const LogTrainingScreen = ({ member, onBack }) => {
         {
           text: "Camera",
           onPress: async () => {
-            const result = await ImagePicker.launchCameraAsync({
-              mediaTypes: ImagePicker.MediaTypeOptions.Images,
-              allowsEditing: true,
-              aspect: [4, 3],
-              quality: 0.8,
-            });
+            try {
+              console.log("Taking photo with camera...");
+              const result = await ImagePicker.launchCameraAsync({
+                allowsEditing: true,
+                aspect: [4, 3],
+                quality: 0.8,
+              });
 
-            if (!result.canceled) {
-              const newMedia = {
-                id: Date.now().toString(),
-                type: "image",
-                uri: result.assets[0].uri,
-                isLocal: true,
-              };
-              setSelectedMedia([...selectedMedia, newMedia]);
+              console.log("Camera result:", result);
+
+              if (
+                !result.canceled &&
+                result.assets &&
+                result.assets.length > 0
+              ) {
+                const newMedia = {
+                  id: Date.now().toString(),
+                  type: "image",
+                  uri: result.assets[0].uri,
+                  isLocal: true,
+                };
+                setSelectedMedia([...selectedMedia, newMedia]);
+                console.log("Added photo from camera");
+              }
+            } catch (error) {
+              console.error("Camera error:", error);
+              Alert.alert(
+                "Error",
+                "Failed to take photo. Please check camera permissions in device settings.",
+              );
             }
           },
         },
         {
           text: "Photo Library",
           onPress: async () => {
-            const result = await ImagePicker.launchImageLibraryAsync({
-              mediaTypes: ImagePicker.MediaTypeOptions.Images,
-              allowsEditing: true,
-              aspect: [4, 3],
-              quality: 0.8,
-            });
+            try {
+              console.log("Selecting photo from library...");
+              const result = await ImagePicker.launchImageLibraryAsync({
+                allowsEditing: true,
+                aspect: [4, 3],
+                quality: 0.8,
+              });
 
-            if (!result.canceled) {
-              const newMedia = {
-                id: Date.now().toString(),
-                type: "image",
-                uri: result.assets[0].uri,
-                isLocal: true,
-              };
-              setSelectedMedia([...selectedMedia, newMedia]);
+              console.log("Library result:", result);
+
+              if (
+                !result.canceled &&
+                result.assets &&
+                result.assets.length > 0
+              ) {
+                const newMedia = {
+                  id: Date.now().toString(),
+                  type: "image",
+                  uri: result.assets[0].uri,
+                  isLocal: true,
+                };
+                setSelectedMedia([...selectedMedia, newMedia]);
+                console.log("Added photo from library");
+              }
+            } catch (error) {
+              console.error("Library error:", error);
+              Alert.alert(
+                "Error",
+                "Failed to select photo. Please check photo library permissions in device settings.",
+              );
             }
           },
         },
@@ -164,11 +174,8 @@ const LogTrainingScreen = ({ member, onBack }) => {
     );
   };
 
-  // NEW: Add video
+  // SIMPLIFIED: Basic video picker
   const addVideo = async () => {
-    const hasPermissions = await requestPermissions();
-    if (!hasPermissions) return;
-
     Alert.alert(
       "Add Video",
       "Record or select a technique video (max 30 seconds)",
@@ -176,44 +183,68 @@ const LogTrainingScreen = ({ member, onBack }) => {
         {
           text: "Record Video",
           onPress: async () => {
-            const result = await ImagePicker.launchCameraAsync({
-              mediaTypes: ImagePicker.MediaTypeOptions.Videos,
-              allowsEditing: true,
-              videoMaxDuration: 30,
-              videoQuality: ImagePicker.VideoQuality.Medium,
-            });
+            try {
+              console.log("Recording video...");
+              const result = await ImagePicker.launchCameraAsync({
+                allowsEditing: true,
+                videoMaxDuration: 30,
+              });
 
-            if (!result.canceled) {
-              const newMedia = {
-                id: Date.now().toString(),
-                type: "video",
-                uri: result.assets[0].uri,
-                duration: result.assets[0].duration,
-                isLocal: true,
-              };
-              setSelectedMedia([...selectedMedia, newMedia]);
+              if (
+                !result.canceled &&
+                result.assets &&
+                result.assets.length > 0
+              ) {
+                const newMedia = {
+                  id: Date.now().toString(),
+                  type: "video",
+                  uri: result.assets[0].uri,
+                  duration: result.assets[0].duration,
+                  isLocal: true,
+                };
+                setSelectedMedia([...selectedMedia, newMedia]);
+                console.log("Added video from camera");
+              }
+            } catch (error) {
+              console.error("Video record error:", error);
+              Alert.alert(
+                "Error",
+                "Failed to record video. Please check camera permissions in device settings.",
+              );
             }
           },
         },
         {
           text: "Video Library",
           onPress: async () => {
-            const result = await ImagePicker.launchImageLibraryAsync({
-              mediaTypes: ImagePicker.MediaTypeOptions.Videos,
-              allowsEditing: true,
-              videoMaxDuration: 30,
-              videoQuality: ImagePicker.VideoQuality.Medium,
-            });
+            try {
+              console.log("Selecting video from library...");
+              const result = await ImagePicker.launchImageLibraryAsync({
+                allowsEditing: true,
+                videoMaxDuration: 30,
+              });
 
-            if (!result.canceled) {
-              const newMedia = {
-                id: Date.now().toString(),
-                type: "video",
-                uri: result.assets[0].uri,
-                duration: result.assets[0].duration,
-                isLocal: true,
-              };
-              setSelectedMedia([...selectedMedia, newMedia]);
+              if (
+                !result.canceled &&
+                result.assets &&
+                result.assets.length > 0
+              ) {
+                const newMedia = {
+                  id: Date.now().toString(),
+                  type: "video",
+                  uri: result.assets[0].uri,
+                  duration: result.assets[0].duration,
+                  isLocal: true,
+                };
+                setSelectedMedia([...selectedMedia, newMedia]);
+                console.log("Added video from library");
+              }
+            } catch (error) {
+              console.error("Video library error:", error);
+              Alert.alert(
+                "Error",
+                "Failed to select video. Please check photo library permissions in device settings.",
+              );
             }
           },
         },
