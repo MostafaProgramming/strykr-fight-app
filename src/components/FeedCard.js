@@ -1,4 +1,4 @@
-// src/components/FeedCard.js - REVOLUTIONARY UPGRADE
+// src/components/FeedCard.js - COMPLETE WITH MEDIA VIEWER
 import React, { useState } from "react";
 import {
   View,
@@ -7,11 +7,10 @@ import {
   Image,
   Dimensions,
   Animated,
-  PanGestureHandler,
-  State,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { colors } from "../constants/colors";
+import SimpleMediaViewer from "./SimpleMediaViewer";
 
 const { width } = Dimensions.get("window");
 
@@ -21,16 +20,19 @@ const FeedCard = ({
   onComment,
   onShare,
   onUserPress,
-  onMediaPress,
-  onRespectBadge, // NEW
-  onTechniqueRequest, // NEW
-  onChallengeResponse, // NEW
+  onRespectBadge,
+  onTechniqueRequest,
+  onChallengeResponse,
 }) => {
   const [isLiked, setIsLiked] = useState(post.isLiked || false);
   const [likeCount, setLikeCount] = useState(post.likeCount || 0);
   const [respectCount, setRespectCount] = useState(post.respectCount || 0);
   const [hasRespected, setHasRespected] = useState(post.hasRespected || false);
   const [showQuickActions, setShowQuickActions] = useState(false);
+
+  // NEW: Media viewer state
+  const [mediaViewerVisible, setMediaViewerVisible] = useState(false);
+  const [mediaViewerIndex, setMediaViewerIndex] = useState(0);
 
   // Animation values
   const fireScale = useState(new Animated.Value(1))[0];
@@ -78,7 +80,7 @@ const FeedCard = ({
     }
   };
 
-  // NEW: Fire reaction with animation
+  // Fire reaction with animation
   const handleFireReaction = () => {
     const newIsLiked = !isLiked;
     const newLikeCount = newIsLiked ? likeCount + 1 : likeCount - 1;
@@ -131,7 +133,7 @@ const FeedCard = ({
     }
   };
 
-  // NEW: Respect badge reaction
+  // Respect badge reaction
   const handleRespectBadge = () => {
     const newHasRespected = !hasRespected;
     const newRespectCount = newHasRespected
@@ -160,7 +162,14 @@ const FeedCard = ({
     }
   };
 
-  // NEW: Double tap for fire reaction
+  // NEW: Handle media press
+  const handleMediaPress = (mediaIndex = 0) => {
+    console.log("Open media viewer", post.media);
+    setMediaViewerIndex(mediaIndex);
+    setMediaViewerVisible(true);
+  };
+
+  // Double tap for fire reaction
   const handleDoubleTap = () => {
     if (!isLiked) {
       handleFireReaction();
@@ -224,7 +233,7 @@ const FeedCard = ({
     }
   };
 
-  // NEW: Quick action buttons
+  // Quick action buttons
   const QuickActions = () => (
     <View style={styles.quickActionsContainer}>
       <TouchableOpacity
@@ -245,7 +254,7 @@ const FeedCard = ({
     </View>
   );
 
-  // NEW: Achievement badge for special sessions
+  // Achievement badge for special sessions
   const AchievementBadge = () => {
     if (post.sessionIntensity >= 9) {
       return (
@@ -329,7 +338,7 @@ const FeedCard = ({
         </View>
       </View>
 
-      {/* Quick Actions (NEW) */}
+      {/* Quick Actions */}
       {showQuickActions && <QuickActions />}
 
       {/* Training Session Header */}
@@ -352,7 +361,7 @@ const FeedCard = ({
           </Text>
           <Text style={styles.sessionSubtitle}>Training Session</Text>
         </View>
-        {/* NEW: Live indicator */}
+        {/* Live indicator */}
         {post.isLive && (
           <View style={styles.liveIndicator}>
             <View style={styles.liveDot} />
@@ -364,33 +373,87 @@ const FeedCard = ({
       {/* Intensity Bar */}
       {getIntensityBar(post.sessionIntensity)}
 
-      {/* Media Section */}
+      {/* ENHANCED: Media Section */}
       {post.media && post.media.length > 0 && (
-        <TouchableOpacity
-          style={styles.mediaContainer}
-          onPress={() => onMediaPress && onMediaPress(post.media)}
-          onDoublePress={handleDoubleTap}
-        >
-          <Image
-            source={{ uri: post.media[0].downloadURL }}
-            style={styles.mediaImage}
-            resizeMode="cover"
-          />
-          {post.media.length > 1 && (
-            <View style={styles.mediaCountBadge}>
-              <Text style={styles.mediaCountText}>
-                +{post.media.length - 1}
-              </Text>
+        <View style={styles.mediaSection}>
+          {post.media.length === 1 ? (
+            // Single media item
+            <TouchableOpacity
+              style={styles.singleMediaContainer}
+              onPress={() => handleMediaPress(0)}
+            >
+              <Image
+                source={{ uri: post.media[0].downloadURL }}
+                style={styles.singleMediaImage}
+                resizeMode="cover"
+              />
+              <View style={styles.mediaOverlay}>
+                <Ionicons
+                  name={
+                    post.media[0].type === "video" ? "play-circle" : "expand"
+                  }
+                  size={32}
+                  color="rgba(255,255,255,0.8)"
+                />
+              </View>
+            </TouchableOpacity>
+          ) : (
+            // Multiple media items - Instagram style grid
+            <View style={styles.multiMediaContainer}>
+              <TouchableOpacity
+                style={styles.primaryMedia}
+                onPress={() => handleMediaPress(0)}
+              >
+                <Image
+                  source={{ uri: post.media[0].downloadURL }}
+                  style={styles.primaryMediaImage}
+                  resizeMode="cover"
+                />
+                <View style={styles.mediaOverlay}>
+                  <Ionicons
+                    name={
+                      post.media[0].type === "video" ? "play-circle" : "expand"
+                    }
+                    size={28}
+                    color="rgba(255,255,255,0.8)"
+                  />
+                </View>
+              </TouchableOpacity>
+
+              <View style={styles.secondaryMediaContainer}>
+                {post.media.slice(1, 3).map((media, index) => (
+                  <TouchableOpacity
+                    key={index}
+                    style={styles.secondaryMedia}
+                    onPress={() => handleMediaPress(index + 1)}
+                  >
+                    <Image
+                      source={{ uri: media.downloadURL }}
+                      style={styles.secondaryMediaImage}
+                      resizeMode="cover"
+                    />
+                    {post.media[index + 1]?.type === "video" && (
+                      <View style={styles.videoIndicator}>
+                        <Ionicons name="play" size={16} color="white" />
+                      </View>
+                    )}
+                  </TouchableOpacity>
+                ))}
+
+                {post.media.length > 3 && (
+                  <TouchableOpacity
+                    style={styles.moreMediaOverlay}
+                    onPress={() => handleMediaPress(3)}
+                  >
+                    <Text style={styles.moreMediaText}>
+                      +{post.media.length - 3}
+                    </Text>
+                  </TouchableOpacity>
+                )}
+              </View>
             </View>
           )}
-          <View style={styles.mediaOverlay}>
-            <Ionicons
-              name={post.media[0].type === "video" ? "play-circle" : "image"}
-              size={48}
-              color="rgba(255,255,255,0.8)"
-            />
-          </View>
-        </TouchableOpacity>
+        </View>
       )}
 
       {/* Session Stats */}
@@ -409,7 +472,7 @@ const FeedCard = ({
           <Ionicons name="flame" size={16} color={colors.textSecondary} />
           <Text style={styles.statText}>{post.sessionCalories || 0} cal</Text>
         </View>
-        {/* NEW: Streak indicator */}
+        {/* Streak indicator */}
         {post.userStreak && post.userStreak > 1 && (
           <View style={styles.statItem}>
             <Ionicons name="trending-up" size={16} color={colors.secondary} />
@@ -425,7 +488,7 @@ const FeedCard = ({
         <Text style={styles.sessionNotes}>{post.sessionNotes}</Text>
       )}
 
-      {/* REVOLUTIONARY Action Bar */}
+      {/* Action Bar */}
       <View style={styles.actionBar}>
         {/* Fire Reaction */}
         <TouchableOpacity
@@ -493,7 +556,7 @@ const FeedCard = ({
           />
         </TouchableOpacity>
 
-        {/* NEW: Technique Request */}
+        {/* Technique Request */}
         <TouchableOpacity
           style={styles.actionButton}
           onPress={() => onTechniqueRequest && onTechniqueRequest(post.id)}
@@ -534,13 +597,21 @@ const FeedCard = ({
         </View>
       )}
 
-      {/* NEW: Trending indicator for viral posts */}
+      {/* Trending indicator for viral posts */}
       {likeCount + respectCount + (post.commentCount || 0) > 50 && (
         <View style={styles.trendingBadge}>
           <Ionicons name="trending-up" size={16} color={colors.secondary} />
           <Text style={styles.trendingText}>Trending in your gym</Text>
         </View>
       )}
+
+      {/* NEW: Media Viewer Modal */}
+      <SimpleMediaViewer
+        visible={mediaViewerVisible}
+        media={post.media || []}
+        initialIndex={mediaViewerIndex}
+        onClose={() => setMediaViewerVisible(false)}
+      />
     </Animated.View>
   );
 };
@@ -626,7 +697,7 @@ const styles = {
     padding: 4,
   },
 
-  // NEW: Achievement Badge
+  // Achievement Badge
   achievementBadge: {
     flexDirection: "row",
     alignItems: "center",
@@ -642,7 +713,7 @@ const styles = {
     color: colors.secondary,
   },
 
-  // NEW: Quick Actions
+  // Quick Actions
   quickActionsContainer: {
     flexDirection: "row",
     gap: 10,
@@ -695,7 +766,7 @@ const styles = {
     marginTop: 2,
   },
 
-  // NEW: Live Indicator
+  // Live Indicator
   liveIndicator: {
     flexDirection: "row",
     alignItems: "center",
@@ -738,32 +809,57 @@ const styles = {
     fontWeight: "500",
   },
 
-  // Media
-  mediaContainer: {
-    borderRadius: 12,
+  // ENHANCED: Media Styles
+  mediaSection: {
     marginBottom: 15,
+    borderRadius: 12,
     overflow: "hidden",
-    position: "relative",
   },
-  mediaImage: {
+
+  // Single media
+  singleMediaContainer: {
+    position: "relative",
+    borderRadius: 12,
+    overflow: "hidden",
+  },
+  singleMediaImage: {
     width: "100%",
-    height: 200,
+    height: 300,
     backgroundColor: colors.backgroundLight,
   },
-  mediaCountBadge: {
-    position: "absolute",
-    top: 10,
-    right: 10,
-    backgroundColor: "rgba(0,0,0,0.7)",
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
+
+  // Multiple media grid
+  multiMediaContainer: {
+    flexDirection: "row",
+    height: 250,
+    gap: 2,
   },
-  mediaCountText: {
-    color: colors.text,
-    fontSize: 12,
-    fontWeight: "600",
+  primaryMedia: {
+    flex: 2,
+    position: "relative",
+    borderRadius: 8,
+    overflow: "hidden",
   },
+  primaryMediaImage: {
+    width: "100%",
+    height: "100%",
+  },
+  secondaryMediaContainer: {
+    flex: 1,
+    gap: 2,
+  },
+  secondaryMedia: {
+    flex: 1,
+    position: "relative",
+    borderRadius: 8,
+    overflow: "hidden",
+  },
+  secondaryMediaImage: {
+    width: "100%",
+    height: "100%",
+  },
+
+  // Media overlays
   mediaOverlay: {
     position: "absolute",
     top: 0,
@@ -772,6 +868,30 @@ const styles = {
     bottom: 0,
     alignItems: "center",
     justifyContent: "center",
+    backgroundColor: "rgba(0,0,0,0.2)",
+  },
+  videoIndicator: {
+    position: "absolute",
+    top: 8,
+    right: 8,
+    backgroundColor: "rgba(0,0,0,0.6)",
+    borderRadius: 12,
+    padding: 4,
+  },
+  moreMediaOverlay: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: "rgba(0,0,0,0.6)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  moreMediaText: {
+    color: colors.text,
+    fontSize: 18,
+    fontWeight: "bold",
   },
 
   // Session Stats
@@ -802,7 +922,7 @@ const styles = {
     marginBottom: 15,
   },
 
-  // REVOLUTIONARY Action Bar
+  // Action Bar
   actionBar: {
     flexDirection: "row",
     alignItems: "center",
@@ -822,7 +942,7 @@ const styles = {
     fontWeight: "500",
   },
 
-  // Enhanced Engagement Bar
+  // Engagement Bar
   engagementBar: {
     flexDirection: "row",
     alignItems: "center",
@@ -841,7 +961,7 @@ const styles = {
     fontWeight: "500",
   },
 
-  // NEW: Trending Badge
+  // Trending Badge
   trendingBadge: {
     flexDirection: "row",
     alignItems: "center",

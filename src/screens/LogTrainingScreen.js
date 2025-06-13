@@ -1,4 +1,4 @@
-// src/screens/LogTrainingScreen.js - WITH MEDIA UPLOAD
+// src/screens/EnhancedLogTrainingScreen.js - INSTAGRAM/TIKTOK STYLE MEDIA
 import React, { useState } from "react";
 import {
   View,
@@ -11,15 +11,17 @@ import {
   Switch,
   Image,
   Dimensions,
+  ActivityIndicator,
+  FlatList,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import * as ImagePicker from "expo-image-picker";
 import { colors } from "../constants/colors";
 import { screenStyles } from "../styles/screenStyles";
 import trainingService from "../services/trainingService";
 import socialFeedService from "../services/socialFeedService";
 import mediaService from "../services/mediaService";
 import achievementsService from "../services/achievementsService";
+import InstagramMediaViewer from "../components/InstagramMediaViewer";
 
 const { width } = Dimensions.get("window");
 
@@ -33,9 +35,12 @@ const LogTrainingScreen = ({ member, onBack }) => {
   const [isLogging, setIsLogging] = useState(false);
   const [achievementModal, setAchievementModal] = useState(null);
 
-  // NEW: Media state
+  // ENHANCED: Media state with better management
   const [selectedMedia, setSelectedMedia] = useState([]);
   const [uploadingMedia, setUploadingMedia] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [mediaViewerVisible, setMediaViewerVisible] = useState(false);
+  const [mediaViewerIndex, setMediaViewerIndex] = useState(0);
 
   const trainingTypes = [
     {
@@ -43,31 +48,42 @@ const LogTrainingScreen = ({ member, onBack }) => {
       label: "Bag Work",
       icon: "fitness",
       color: colors.bagWork,
+      emoji: "🥊",
     },
     {
       id: "pad work",
       label: "Pad Work",
       icon: "hand-left-outline",
       color: colors.padWork,
+      emoji: "🥋",
     },
     {
       id: "sparring",
       label: "Sparring",
       icon: "people",
       color: colors.sparring,
+      emoji: "🤼",
     },
-    { id: "drills", label: "Drills", icon: "repeat", color: colors.drills },
+    {
+      id: "drills",
+      label: "Drills",
+      icon: "repeat",
+      color: colors.drills,
+      emoji: "⚡",
+    },
     {
       id: "strength",
       label: "Strength",
       icon: "barbell-outline",
       color: colors.strength,
+      emoji: "💪",
     },
     {
       id: "recovery",
       label: "Recovery",
       icon: "leaf-outline",
       color: colors.recovery,
+      emoji: "🧘",
     },
   ];
 
@@ -91,202 +107,139 @@ const LogTrainingScreen = ({ member, onBack }) => {
     return colors.intensityMax;
   };
 
-  // SIMPLIFIED: Basic ImagePicker without MediaTypeOptions
-  const addPhoto = async () => {
-    Alert.alert(
-      "Add Photo",
-      "Choose how you'd like to add a photo to your training session",
-      [
-        {
-          text: "Camera",
-          onPress: async () => {
-            try {
-              console.log("Taking photo with camera...");
-              const result = await ImagePicker.launchCameraAsync({
-                allowsEditing: true,
-                aspect: [4, 3],
-                quality: 0.8,
-              });
+  // ENHANCED: Add media with Instagram-style picker
+  const addMedia = () => {
+    if (selectedMedia.length >= 10) {
+      Alert.alert(
+        "Limit Reached",
+        "You can add up to 10 photos/videos per session",
+      );
+      return;
+    }
 
-              console.log("Camera result:", result);
-
-              if (
-                !result.canceled &&
-                result.assets &&
-                result.assets.length > 0
-              ) {
-                const newMedia = {
-                  id: Date.now().toString(),
-                  type: "image",
-                  uri: result.assets[0].uri,
-                  isLocal: true,
-                };
-                setSelectedMedia([...selectedMedia, newMedia]);
-                console.log("Added photo from camera");
-              }
-            } catch (error) {
-              console.error("Camera error:", error);
-              Alert.alert(
-                "Error",
-                "Failed to take photo. Please check camera permissions in device settings.",
-              );
-            }
-          },
-        },
-        {
-          text: "Photo Library",
-          onPress: async () => {
-            try {
-              console.log("Selecting photo from library...");
-              const result = await ImagePicker.launchImageLibraryAsync({
-                allowsEditing: true,
-                aspect: [4, 3],
-                quality: 0.8,
-              });
-
-              console.log("Library result:", result);
-
-              if (
-                !result.canceled &&
-                result.assets &&
-                result.assets.length > 0
-              ) {
-                const newMedia = {
-                  id: Date.now().toString(),
-                  type: "image",
-                  uri: result.assets[0].uri,
-                  isLocal: true,
-                };
-                setSelectedMedia([...selectedMedia, newMedia]);
-                console.log("Added photo from library");
-              }
-            } catch (error) {
-              console.error("Library error:", error);
-              Alert.alert(
-                "Error",
-                "Failed to select photo. Please check photo library permissions in device settings.",
-              );
-            }
-          },
-        },
-        { text: "Cancel", style: "cancel" },
-      ],
-    );
+    Alert.alert("Add Media", "Choose how you'd like to capture your training", [
+      {
+        text: "📸 Take Photo",
+        onPress: () => takePhoto(),
+      },
+      {
+        text: "🎥 Record Video",
+        onPress: () => recordVideo(),
+      },
+      {
+        text: "📱 Choose from Library",
+        onPress: () => pickFromLibrary(),
+      },
+      { text: "Cancel", style: "cancel" },
+    ]);
   };
 
-  // SIMPLIFIED: Basic video picker
-  const addVideo = async () => {
-    Alert.alert(
-      "Add Video",
-      "Record or select a technique video (max 30 seconds)",
-      [
-        {
-          text: "Record Video",
-          onPress: async () => {
-            try {
-              console.log("Recording video...");
-              const result = await ImagePicker.launchCameraAsync({
-                allowsEditing: true,
-                videoMaxDuration: 30,
-              });
+  const takePhoto = async () => {
+    try {
+      setUploadingMedia(true);
+      const result = await mediaService.takeMediaWithCamera("photo");
 
-              if (
-                !result.canceled &&
-                result.assets &&
-                result.assets.length > 0
-              ) {
-                const newMedia = {
-                  id: Date.now().toString(),
-                  type: "video",
-                  uri: result.assets[0].uri,
-                  duration: result.assets[0].duration,
-                  isLocal: true,
-                };
-                setSelectedMedia([...selectedMedia, newMedia]);
-                console.log("Added video from camera");
-              }
-            } catch (error) {
-              console.error("Video record error:", error);
-              Alert.alert(
-                "Error",
-                "Failed to record video. Please check camera permissions in device settings.",
-              );
-            }
-          },
-        },
-        {
-          text: "Video Library",
-          onPress: async () => {
-            try {
-              console.log("Selecting video from library...");
-              const result = await ImagePicker.launchImageLibraryAsync({
-                allowsEditing: true,
-                videoMaxDuration: 30,
-              });
-
-              if (
-                !result.canceled &&
-                result.assets &&
-                result.assets.length > 0
-              ) {
-                const newMedia = {
-                  id: Date.now().toString(),
-                  type: "video",
-                  uri: result.assets[0].uri,
-                  duration: result.assets[0].duration,
-                  isLocal: true,
-                };
-                setSelectedMedia([...selectedMedia, newMedia]);
-                console.log("Added video from library");
-              }
-            } catch (error) {
-              console.error("Video library error:", error);
-              Alert.alert(
-                "Error",
-                "Failed to select video. Please check photo library permissions in device settings.",
-              );
-            }
-          },
-        },
-        { text: "Cancel", style: "cancel" },
-      ],
-    );
+      if (result.success) {
+        setSelectedMedia([...selectedMedia, result.media]);
+      } else if (result.error !== "Capture cancelled") {
+        Alert.alert("Error", result.error);
+      }
+    } catch (error) {
+      Alert.alert("Error", "Failed to take photo");
+    } finally {
+      setUploadingMedia(false);
+    }
   };
 
-  // NEW: Remove media
+  const recordVideo = async () => {
+    try {
+      setUploadingMedia(true);
+      const result = await mediaService.takeMediaWithCamera("video");
+
+      if (result.success) {
+        setSelectedMedia([...selectedMedia, result.media]);
+      } else if (result.error !== "Capture cancelled") {
+        Alert.alert("Error", result.error);
+      }
+    } catch (error) {
+      Alert.alert("Error", "Failed to record video");
+    } finally {
+      setUploadingMedia(false);
+    }
+  };
+
+  const pickFromLibrary = async () => {
+    try {
+      setUploadingMedia(true);
+      const result = await mediaService.pickMedia({
+        allowsEditing: true,
+        quality: 0.8,
+        aspect: [1, 1],
+        mediaTypes: "mixed",
+      });
+
+      if (result.success) {
+        setSelectedMedia([...selectedMedia, result.media]);
+      } else if (result.error !== "Selection cancelled") {
+        Alert.alert("Error", result.error);
+      }
+    } catch (error) {
+      Alert.alert("Error", "Failed to pick media");
+    } finally {
+      setUploadingMedia(false);
+    }
+  };
+
+  // ENHANCED: Remove media with confirmation
   const removeMedia = (mediaId) => {
-    setSelectedMedia(selectedMedia.filter((media) => media.id !== mediaId));
+    Alert.alert("Remove Media", "Are you sure you want to remove this media?", [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Remove",
+        style: "destructive",
+        onPress: () => {
+          setSelectedMedia(
+            selectedMedia.filter((media) => media.id !== mediaId),
+          );
+        },
+      },
+    ]);
   };
 
-  // NEW: Upload media to Firebase Storage (simplified for now)
+  // ENHANCED: View media in full screen
+  const viewMedia = (index) => {
+    setMediaViewerIndex(index);
+    setMediaViewerVisible(true);
+  };
+
+  // ENHANCED: Upload media to Firebase Storage
   const uploadMediaFiles = async (sessionId) => {
     if (selectedMedia.length === 0) return [];
 
     setUploadingMedia(true);
-    const uploadedMedia = [];
+    setUploadProgress(0);
 
     try {
-      for (const media of selectedMedia) {
-        // In a real app, you'd upload to Firebase Storage here
-        // For now, we'll simulate with local URIs
-        const uploadedItem = {
-          id: media.id,
-          type: media.type,
-          downloadURL: media.uri, // In production, this would be the Firebase Storage URL
-          fileName: `${sessionId}_${media.id}`,
-          uploadedAt: new Date(),
-          uploadedBy: member.uid,
-        };
-        uploadedMedia.push(uploadedItem);
+      const result = await mediaService.processMediaForFeed(
+        selectedMedia,
+        member.uid,
+        sessionId,
+        (progress) => setUploadProgress(progress),
+      );
+
+      if (result.success) {
+        return result.processedMedia;
+      } else {
+        throw new Error("Failed to upload media");
       }
     } catch (error) {
       console.error("Error uploading media:", error);
-      Alert.alert("Error", "Failed to upload some media files");
+      Alert.alert("Upload Error", "Some media files failed to upload");
+      return [];
     } finally {
       setUploadingMedia(false);
+      setUploadProgress(0);
     }
-
-    return uploadedMedia;
   };
 
   const handleLogSession = async () => {
@@ -314,6 +267,8 @@ const LogTrainingScreen = ({ member, onBack }) => {
           hour: "2-digit",
           minute: "2-digit",
         }),
+        shareToFeed,
+        userInfo: member,
       };
 
       const result = await trainingService.addTrainingSession(sessionData);
@@ -343,7 +298,7 @@ const LogTrainingScreen = ({ member, onBack }) => {
             sessionNotes: notes.trim(),
             sessionCalories: calculateCalories(sessionData),
 
-            // NEW: Media
+            // Media
             media: uploadedMedia,
 
             // Post metadata
@@ -387,8 +342,8 @@ const LogTrainingScreen = ({ member, onBack }) => {
         }
 
         const mediaText =
-          selectedMedia.length > 0
-            ? ` with ${selectedMedia.length} ${selectedMedia.length === 1 ? "photo/video" : "photos/videos"}`
+          uploadedMedia.length > 0
+            ? ` with ${uploadedMedia.length} ${uploadedMedia.length === 1 ? "photo/video" : "photos/videos"}`
             : "";
 
         Alert.alert(
@@ -440,94 +395,125 @@ const LogTrainingScreen = ({ member, onBack }) => {
     setIntensity(7);
     setNotes("");
     setShareToFeed(true);
-    setSelectedMedia([]); // NEW: Reset media
+    setSelectedMedia([]);
   };
 
-  // NEW: Media Preview Component
+  // ENHANCED: Instagram-style media preview grid
   const MediaPreview = () => {
     if (selectedMedia.length === 0) return null;
 
+    const renderMediaItem = ({ item, index }) => (
+      <TouchableOpacity
+        style={styles.mediaPreviewItem}
+        onPress={() => viewMedia(index)}
+      >
+        <Image
+          source={{ uri: item.uri }}
+          style={styles.mediaPreviewImage}
+          resizeMode="cover"
+        />
+
+        {/* Video indicator */}
+        {item.type === "video" && (
+          <View style={styles.videoIndicator}>
+            <Ionicons name="play-circle" size={24} color="white" />
+            {item.duration && (
+              <Text style={styles.videoDuration}>
+                {Math.round(item.duration / 1000)}s
+              </Text>
+            )}
+          </View>
+        )}
+
+        {/* Remove button */}
+        <TouchableOpacity
+          style={styles.removeMediaButton}
+          onPress={() => removeMedia(item.id)}
+        >
+          <Ionicons name="close-circle" size={20} color={colors.error} />
+        </TouchableOpacity>
+      </TouchableOpacity>
+    );
+
     return (
       <View style={styles.mediaPreview}>
-        <Text style={styles.mediaPreviewTitle}>
-          Media ({selectedMedia.length}/5)
-        </Text>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-          {selectedMedia.map((media) => (
-            <View key={media.id} style={styles.mediaItem}>
-              {media.type === "image" ? (
-                <Image source={{ uri: media.uri }} style={styles.mediaImage} />
-              ) : (
-                <View style={styles.videoPlaceholder}>
-                  <Ionicons name="play-circle" size={32} color={colors.text} />
-                  <Text style={styles.videoDuration}>
-                    {Math.round(media.duration / 1000)}s
-                  </Text>
-                </View>
-              )}
-              <TouchableOpacity
-                style={styles.removeMediaButton}
-                onPress={() => removeMedia(media.id)}
-              >
-                <Ionicons name="close-circle" size={20} color={colors.error} />
-              </TouchableOpacity>
+        <View style={styles.mediaPreviewHeader}>
+          <Text style={styles.mediaPreviewTitle}>
+            Media ({selectedMedia.length}/10)
+          </Text>
+          <TouchableOpacity
+            style={styles.addMediaButton}
+            onPress={addMedia}
+            disabled={selectedMedia.length >= 10}
+          >
+            <Ionicons name="add-circle" size={24} color={colors.primary} />
+          </TouchableOpacity>
+        </View>
+
+        <FlatList
+          data={selectedMedia}
+          renderItem={renderMediaItem}
+          keyExtractor={(item) => item.id}
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.mediaPreviewList}
+        />
+
+        {/* Upload progress */}
+        {uploadingMedia && (
+          <View style={styles.uploadProgress}>
+            <Text style={styles.uploadProgressText}>
+              {uploadProgress > 0
+                ? `Uploading... ${Math.round(uploadProgress)}%`
+                : "Processing media..."}
+            </Text>
+            <View style={styles.progressBar}>
+              <View
+                style={[styles.progressFill, { width: `${uploadProgress}%` }]}
+              />
             </View>
-          ))}
-        </ScrollView>
+          </View>
+        )}
       </View>
     );
   };
 
-  // NEW: Media Upload Section
+  // ENHANCED: Media upload section
   const MediaUploadSection = () => (
     <View style={screenStyles.section}>
       <Text style={screenStyles.sectionTitle}>
-        Add Photos & Videos (Optional)
+        📸 Share Your Training (Optional)
       </Text>
       <Text style={styles.mediaSubtitle}>
-        Share your technique, form, or training environment
+        Show your technique, progress, and training environment
       </Text>
 
-      <View style={styles.mediaButtons}>
-        <TouchableOpacity
-          style={[
-            styles.mediaButton,
-            selectedMedia.length >= 5 && styles.disabledButton,
-          ]}
-          onPress={addPhoto}
-          disabled={selectedMedia.length >= 5}
-        >
-          <Ionicons name="camera" size={20} color={colors.primary} />
-          <Text style={styles.mediaButtonText}>Add Photo</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[
-            styles.mediaButton,
-            selectedMedia.length >= 5 && styles.disabledButton,
-          ]}
-          onPress={addVideo}
-          disabled={selectedMedia.length >= 5}
-        >
-          <Ionicons name="videocam" size={20} color={colors.secondary} />
-          <Text style={styles.mediaButtonText}>Add Video</Text>
-        </TouchableOpacity>
-      </View>
-
-      <MediaPreview />
-
-      {selectedMedia.length > 0 && (
-        <View style={styles.mediaInfo}>
+      {selectedMedia.length === 0 ? (
+        <TouchableOpacity style={styles.emptyMediaContainer} onPress={addMedia}>
           <Ionicons
-            name="information-circle"
-            size={16}
+            name="camera-outline"
+            size={48}
             color={colors.textSecondary}
           />
-          <Text style={styles.mediaInfoText}>
-            {selectedMedia.length}/5 media files • Videos max 30s
+          <Text style={styles.emptyMediaText}>Add photos & videos</Text>
+          <Text style={styles.emptyMediaSubtext}>
+            Tap to capture your training session
           </Text>
-        </View>
+        </TouchableOpacity>
+      ) : (
+        <MediaPreview />
       )}
+
+      <View style={styles.mediaTips}>
+        <Ionicons
+          name="information-circle"
+          size={16}
+          color={colors.textSecondary}
+        />
+        <Text style={styles.mediaTipsText}>
+          • Max 10 media files • Videos up to 60s • Square format works best
+        </Text>
+      </View>
     </View>
   );
 
@@ -535,7 +521,7 @@ const LogTrainingScreen = ({ member, onBack }) => {
     <View style={styles.sharingContainer}>
       <View style={styles.sharingHeader}>
         <View style={styles.sharingInfo}>
-          <Text style={styles.sharingTitle}>Share to Community Feed</Text>
+          <Text style={styles.sharingTitle}>🌟 Share to Community Feed</Text>
           <Text style={styles.sharingSubtitle}>
             Inspire others with your training session
             {selectedMedia.length > 0 &&
@@ -557,9 +543,8 @@ const LogTrainingScreen = ({ member, onBack }) => {
         <View style={styles.sharingPreview}>
           <Ionicons name="people" size={16} color={colors.primary} />
           <Text style={styles.sharingPreviewText}>
-            Your session will appear in the community feed with your training
-            stats
-            {selectedMedia.length > 0 && " and media"}
+            Your session will appear in the community feed
+            {selectedMedia.length > 0 && " with your media"}
           </Text>
         </View>
       )}
@@ -577,7 +562,7 @@ const LogTrainingScreen = ({ member, onBack }) => {
       onPress={() => setSelectedType(type.id)}
     >
       <View style={[styles.typeIcon, { backgroundColor: type.color + "20" }]}>
-        <Ionicons name={type.icon} size={24} color={type.color} />
+        <Text style={styles.typeEmoji}>{type.emoji}</Text>
       </View>
       <Text
         style={[
@@ -605,7 +590,7 @@ const LogTrainingScreen = ({ member, onBack }) => {
             </View>
 
             <Text style={styles.achievementModalTitle}>
-              Achievement Unlocked!
+              🎉 Achievement Unlocked!
             </Text>
             <Text style={styles.achievementModalName}>
               {achievement?.title}
@@ -743,7 +728,7 @@ const LogTrainingScreen = ({ member, onBack }) => {
           </View>
         </View>
 
-        {/* NEW: Media Upload Section */}
+        {/* ENHANCED: Media Upload Section */}
         <MediaUploadSection />
 
         {/* Notes */}
@@ -774,17 +759,32 @@ const LogTrainingScreen = ({ member, onBack }) => {
           onPress={handleLogSession}
           disabled={isLogging || uploadingMedia}
         >
-          <Text style={screenStyles.primaryButtonText}>
-            {isLogging
-              ? "Logging Session..."
-              : uploadingMedia
-                ? "Uploading Media..."
-                : shareToFeed
-                  ? "Log & Share Training"
-                  : "Log Training Session"}
-          </Text>
+          {isLogging || uploadingMedia ? (
+            <View style={styles.loadingButton}>
+              <ActivityIndicator color={colors.text} />
+              <Text style={screenStyles.primaryButtonText}>
+                {uploadingMedia ? "Uploading Media..." : "Logging Session..."}
+              </Text>
+            </View>
+          ) : (
+            <Text style={screenStyles.primaryButtonText}>
+              {shareToFeed
+                ? "🚀 Log & Share Training"
+                : "📝 Log Training Session"}
+            </Text>
+          )}
         </TouchableOpacity>
       </ScrollView>
+
+      {/* Media Viewer Modal */}
+      <InstagramMediaViewer
+        visible={mediaViewerVisible}
+        media={selectedMedia}
+        initialIndex={mediaViewerIndex}
+        onClose={() => setMediaViewerVisible(false)}
+        showActions={false}
+        showInfo={true}
+      />
 
       {/* Achievement Modal */}
       <AchievementModal
@@ -821,6 +821,9 @@ const styles = {
     alignItems: "center",
     justifyContent: "center",
     marginBottom: 10,
+  },
+  typeEmoji: {
+    fontSize: 24,
   },
   typeLabel: {
     fontSize: 14,
@@ -903,69 +906,80 @@ const styles = {
     fontWeight: "bold",
   },
 
-  // NEW: Media Upload Styles
+  // ENHANCED: Media Upload Styles
   mediaSubtitle: {
     fontSize: 14,
     color: colors.textSecondary,
     marginBottom: 15,
   },
-  mediaButtons: {
-    flexDirection: "row",
-    gap: 12,
-    marginBottom: 20,
-  },
-  mediaButton: {
-    flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
+  emptyMediaContainer: {
     backgroundColor: colors.cardBackground,
-    borderRadius: 12,
-    padding: 15,
-    borderWidth: 1,
+    borderRadius: 15,
+    borderWidth: 2,
     borderColor: colors.cardBorder,
-    gap: 8,
+    borderStyle: "dashed",
+    padding: 40,
+    alignItems: "center",
+    marginBottom: 15,
   },
-  disabledButton: {
-    opacity: 0.5,
-  },
-  mediaButtonText: {
-    fontSize: 14,
+  emptyMediaText: {
+    fontSize: 16,
+    fontWeight: "600",
     color: colors.text,
-    fontWeight: "500",
+    marginTop: 10,
+  },
+  emptyMediaSubtext: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    marginTop: 5,
+    textAlign: "center",
   },
   mediaPreview: {
+    marginBottom: 15,
+  },
+  mediaPreviewHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     marginBottom: 15,
   },
   mediaPreviewTitle: {
     fontSize: 16,
     fontWeight: "600",
     color: colors.text,
-    marginBottom: 10,
   },
-  mediaItem: {
+  addMediaButton: {
+    padding: 5,
+  },
+  mediaPreviewList: {
+    paddingVertical: 5,
+  },
+  mediaPreviewItem: {
     position: "relative",
     marginRight: 12,
-    borderRadius: 8,
+    borderRadius: 12,
     overflow: "hidden",
   },
-  mediaImage: {
+  mediaPreviewImage: {
     width: 80,
     height: 80,
-    borderRadius: 8,
+    borderRadius: 12,
   },
-  videoPlaceholder: {
-    width: 80,
-    height: 80,
-    backgroundColor: colors.backgroundLight,
-    borderRadius: 8,
+  videoIndicator: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: "rgba(0,0,0,0.3)",
     alignItems: "center",
     justifyContent: "center",
   },
   videoDuration: {
     fontSize: 10,
-    color: colors.text,
-    marginTop: 4,
+    color: "white",
+    fontWeight: "600",
+    marginTop: 2,
   },
   removeMediaButton: {
     position: "absolute",
@@ -973,16 +987,45 @@ const styles = {
     right: -8,
     backgroundColor: colors.cardBackground,
     borderRadius: 10,
+    padding: 2,
   },
-  mediaInfo: {
+  uploadProgress: {
+    marginTop: 10,
+    padding: 15,
+    backgroundColor: colors.cardBackground,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.cardBorder,
+  },
+  uploadProgressText: {
+    fontSize: 14,
+    color: colors.text,
+    textAlign: "center",
+    marginBottom: 8,
+  },
+  progressBar: {
+    height: 4,
+    backgroundColor: colors.backgroundLight,
+    borderRadius: 2,
+  },
+  progressFill: {
+    height: "100%",
+    backgroundColor: colors.primary,
+    borderRadius: 2,
+  },
+  mediaTips: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 6,
+    gap: 8,
     marginTop: 10,
+    padding: 10,
+    backgroundColor: colors.backgroundLight,
+    borderRadius: 8,
   },
-  mediaInfoText: {
+  mediaTipsText: {
     fontSize: 12,
     color: colors.textSecondary,
+    flex: 1,
   },
 
   // Social Sharing Styles
@@ -1035,6 +1078,11 @@ const styles = {
     color: colors.text,
     fontSize: 16,
     minHeight: 100,
+  },
+  loadingButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
   },
 
   // Achievement Modal Styles
